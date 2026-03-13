@@ -1,0 +1,5 @@
+# Exclude everything not needed by the Dockerfile.
+# The Dockerfile installs packages via apk and does not COPY local files,
+# so the only purpose is to minimise build-context transfer size.
+*
+!Dockerfile

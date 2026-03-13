@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+# docker stub: echoes the full command line so tests can inspect arguments.
+#
+# Does NOT actually invoke Docker.
+
+echo "docker $*"
+exit 0

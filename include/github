@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# shellcheck shell=bash
+#
+# github-cli shell functions — source this file in .bashrc / .bash_profile.
+#
+# Authentication (in priority order):
+#   1. GITHUB_PAT env var  → passed as GH_TOKEN to the container
+#   2. ~/.config/gh        → mounted into the container
+#
+# Docker-secrets support: GITHUB_PAT_FILE and GITHUB_USERNAME_FILE may
+# point to files whose first line is read as the value.  The plain env
+# vars take precedence over the _FILE variants.
+#
+# If GITHUB_USERNAME is set alongside GITHUB_PAT, it is exported as
+# GITHUB_LOGIN for use by calling scripts.
+#
+# The container runs as the host user's UID/GID so that git operations
+# (e.g. gh repo create --source=.) can write to the mounted workspace.
+
+# Read the first line of a file into a variable.  Returns 1 if the file
+# is missing, unreadable, or empty.
+_read_secret_file() {
+    local file=$1
+    [[ -r "${file}" ]] || return 1
+    local value
+    IFS= read -r value < "${file}" || true
+    [[ -n "${value}" ]] || return 1
+    printf '%s' "${value}"
+}
+
+function gh() {
+    github "$@"
+}
+
+function github() {
+    # Resolve _FILE variants when the plain env var is not set.
+    local pat="${GH_TOKEN:-${GITHUB_PAT:-}}"
+    if [[ -z "${pat}" && -n "${GH_TOKEN_FILE:-${GITHUB_PAT_FILE:-}}" ]]; then
+        pat=$(_read_secret_file "${GH_TOKEN_FILE}") || {
+            echo "github-cli: cannot read GITHUB_PAT_FILE (${GH_TOKEN_FILE})" >&2
+            return 1
+        }
+    fi
+
+    local username="${GH_USERNAME:-${GITHUB_USERNAME:-unknown}}"
+    if [[ -z "${username}" && -n "${GH_USERNAME_FILE:-${GITHUB_USERNAME_FILE:-}}" ]]; then
+        username=$(_read_secret_file "${GH_USERNAME_FILE}") || {
+            echo "github-cli: cannot read GITHUB_USERNAME_FILE (${GH_USERNAME_FILE})" >&2
+            return 1
+        }
+    fi
+
+    local -a auth_env=()
+    if [[ -n "${pat}" ]]; then
+        auth_env=(-e "GH_TOKEN=${pat}")
+        if [[ -n "${username}" ]]; then
+            export GITHUB_LOGIN="${username}"
+        fi
+    fi
+
+    # Allocate a TTY only when stdin and stdout are terminals.
+    local -a tty_flags=(-i)
+    if [[ -t 0 ]] && [[ -t 1 ]]; then
+        tty_flags+=(-t)
+    fi
+
+    # Create the gh config directory on the host if it doesn't exist,
+    # so the bind mount doesn't fail.
+    mkdir -p "${HOME}/.config/gh"
+
+    docker run --rm "${tty_flags[@]}" \
+        --user "$(id -u):$(id -g)" \
+        "${auth_env[@]}" \
+        -e GH_CONFIG_DIR=/gh-config \
+        -v "${HOME}/.config/gh:/gh-config" \
+        -v "${PWD}:/workspace" \
+        1121citrus/github-cli:latest "$@"
+}
