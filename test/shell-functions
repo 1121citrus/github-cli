@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
+# shellcheck disable=SC1091
+# shellcheck disable=SC2034
 
 # github-cli: test include/github shell functions.
 #
