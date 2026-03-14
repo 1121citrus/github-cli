@@ -34,18 +34,18 @@ function gh() {
 
 function github() {
     # Resolve _FILE variants when the plain env var is not set.
-    local pat="${GH_TOKEN:-${GITHUB_PAT:-}}"
-    if [[ -z "${pat}" && -n "${GH_TOKEN_FILE:-${GITHUB_PAT_FILE:-}}" ]]; then
-        pat=$(_read_secret_file "${GH_TOKEN_FILE}") || {
-            echo "github-cli: cannot read GITHUB_PAT_FILE (${GH_TOKEN_FILE})" >&2
+    local pat="${GITHUB_PAT:-}"
+    if [[ -z "${pat}" && -n "${GITHUB_PAT_FILE:-}" ]]; then
+        pat=$(_read_secret_file "${GITHUB_PAT_FILE}") || {
+            echo "github-cli: cannot read GITHUB_PAT_FILE (${GITHUB_PAT_FILE})" >&2
             return 1
         }
     fi
 
-    local username="${GH_USERNAME:-${GITHUB_USERNAME:-unknown}}"
-    if [[ -z "${username}" && -n "${GH_USERNAME_FILE:-${GITHUB_USERNAME_FILE:-}}" ]]; then
-        username=$(_read_secret_file "${GH_USERNAME_FILE}") || {
-            echo "github-cli: cannot read GITHUB_USERNAME_FILE (${GH_USERNAME_FILE})" >&2
+    local username="${GITHUB_USERNAME:-}"
+    if [[ -z "${username}" && -n "${GITHUB_USERNAME_FILE:-}" ]]; then
+        username=$(_read_secret_file "${GITHUB_USERNAME_FILE}") || {
+            echo "github-cli: cannot read GITHUB_USERNAME_FILE (${GITHUB_USERNAME_FILE})" >&2
             return 1
         }
     fi
