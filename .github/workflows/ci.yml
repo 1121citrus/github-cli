@@ -12,6 +12,7 @@ permissions:
 
 env:
   IMAGE: 1121citrus/github-cli
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   # ── Stage 1: Lint ──────────────────────────────────────────────
@@ -120,7 +121,7 @@ jobs:
         # Pin to a specific version tag rather than @master to prevent
         # supply-chain attacks via a compromised mutable ref.
         # Update periodically: https://github.com/aquasecurity/trivy-action/releases
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: ${{ env.IMAGE }}:latest
           format: table
