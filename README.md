@@ -22,6 +22,7 @@ providing a containerized `gh` command with your existing GitHub authentication.
   - [Known unfixable CVEs](#known-unfixable-cves)
 - [Testing](#testing)
 - [CI/CD](#cicd)
+- [Security policy](#security-policy)
 
 ## Prerequisites
 
@@ -142,6 +143,11 @@ gh repo list
 - **Non-root execution:** The container runs as the host user's
   UID/GID (`--user "$(id -u):$(id -g)"`), so all file operations
   (including git writes) use the correct ownership.
+- **Capabilities dropped:** `--cap-drop ALL` is passed on every
+  `docker run`. The `gh` CLI only needs network access and file I/O;
+  no Linux capabilities are required.
+- **No privilege escalation:** `--security-opt no-new-privileges:true`
+  prevents any setuid/setgid escalation path inside the container.
 - **TTY detection:** The wrapper allocates a pseudo-TTY only when
   stdin and stdout are terminals, allowing safe use in CI pipelines
   and non-interactive scripts.
@@ -251,3 +257,9 @@ The pipeline is defined in `.github/workflows/ci.yml`.
 
 - Pushes to `main`/`master`: tagged as `edge`
 - Version tags (`v1.2.3`): tagged as `1.2.3` and `latest`
+
+## Security policy
+
+See [SECURITY.md](SECURITY.md) for the vulnerability-reporting process,
+known unfixable CVEs, and a full list of defense-in-depth measures applied
+to every container invocation.

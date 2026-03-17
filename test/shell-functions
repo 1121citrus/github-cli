@@ -184,9 +184,48 @@ test_image_tag_is_latest() {
     _assert_contains "image tag" "1121citrus/github-cli:latest" "${output}"
 }
 
+test_gh_alias_works() {
+    # gh() must be an alias for github() and produce identical output.
+    local out_github out_gh
+    out_github=$(_run_github_fn --version) || {
+        echo "FAIL '${FUNCNAME[0]}': github() exited non-zero"; return 1
+    }
+    # Call gh() directly by sourcing inside the subshell.
+    out_gh=$(
+        export PATH="${whereami}/bin:${PATH}"
+        # shellcheck source=../include/github
+        source "${root}/include/github"
+        gh --version
+    ) || {
+        echo "FAIL '${FUNCNAME[0]}': gh() exited non-zero"; return 1
+    }
+    if [[ "${out_github}" == "${out_gh}" ]]; then
+        echo "PASS '${FUNCNAME[0]}': gh() produces identical output to github()"
+    else
+        echo "FAIL '${FUNCNAME[0]}': gh() and github() outputs differ"
+        return 1
+    fi
+}
+
+test_cap_drop_all() {
+    local output
+    output=$(_run_github_fn --version) || {
+        echo "FAIL '${FUNCNAME[0]}': function exited non-zero"; return 1
+    }
+    _assert_contains "--cap-drop ALL present" "--cap-drop ALL" "${output}"
+}
+
+test_no_new_privileges() {
+    local output
+    output=$(_run_github_fn --version) || {
+        echo "FAIL '${FUNCNAME[0]}': function exited non-zero"; return 1
+    }
+    _assert_contains "--security-opt no-new-privileges" "no-new-privileges:true" "${output}"
+}
+
 run_tests() {
     local passed=0
-    local tests=(
+    local -a tests=(
         test_basic_invocation_passes_args
         test_config_dir_is_set
         test_workspace_mounted
@@ -200,6 +239,9 @@ run_tests() {
         test_plain_var_takes_precedence_over_file
         test_no_tty_in_noninteractive
         test_image_tag_is_latest
+        test_gh_alias_works
+        test_cap_drop_all
+        test_no_new_privileges
     )
 
     setup || { echo "ERROR: Setup failed"; return 1; }

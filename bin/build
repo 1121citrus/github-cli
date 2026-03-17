@@ -43,9 +43,11 @@ docker buildx build \
     .
 
 echo "[INFO] scanning ${IMAGE}:${VERSION} with Trivy"
+# Pin Trivy to a specific version for reproducible scans.
+# Update periodically: https://github.com/aquasecurity/trivy/releases
 docker run --rm \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    aquasec/trivy:latest image \
+    aquasec/trivy:0.59.1 image \
         --quiet \
         --severity HIGH,CRITICAL,MEDIUM,LOW \
         "${IMAGE}:${VERSION}"

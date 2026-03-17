@@ -26,7 +26,20 @@ jobs:
           dockerfile: Dockerfile
 
       - name: Lint shell scripts with shellcheck
-        run: shellcheck -x include/github bin/build test/*[!bin]
+        # List files explicitly: the glob test/*[!bin] is a character-class
+        # negation that excludes any file ending in 'b', 'i', or 'n' —
+        # silently skipping test/gh-invocation.  test/bin/docker also
+        # requires checking and is included here.
+        run: |
+          shellcheck -x \
+            include/github \
+            bin/build \
+            test/bin/docker \
+            test/env-metadata \
+            test/gh-invocation \
+            test/image-structure \
+            test/run-all \
+            test/shell-functions
 
   # ── Stage 2: Build ────────────────────────────────────────────
   build:
@@ -104,7 +117,10 @@ jobs:
         run: gunzip -c /tmp/image.tar.gz | docker load
 
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@master
+        # Pin to a specific version tag rather than @master to prevent
+        # supply-chain attacks via a compromised mutable ref.
+        # Update periodically: https://github.com/aquasecurity/trivy-action/releases
+        uses: aquasecurity/trivy-action@0.29.0
         with:
           image-ref: ${{ env.IMAGE }}:latest
           format: table
