@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
-# shellcheck disable=SC1091
-# shellcheck disable=SC2034
+# shellcheck disable=SC1091,SC2030,SC2031,SC2034
 
 # github-cli: test include/github shell functions.
 #
@@ -250,7 +249,7 @@ run_tests() {
     echo "========================================================"
 
     for test in "${tests[@]}"; do
-        "${test}" && ((passed++)) || :
+        { "${test}" && ((passed++)) } || :
     done
 
     local failed=$(( ${#tests[@]} - passed ))
