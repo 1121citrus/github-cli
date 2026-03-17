@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-
+# shellcheck shell=bash
+#
 # docker stub: echoes the full command line so tests can inspect arguments.
 #
 # Does NOT actually invoke Docker.
+#
+# Copyright (C) 2026 James Hanlon [mailto:jim@hanlonsoftware.com]
+# SPDX-License-Identifier: AGPL-3.0-or-later
 
 echo "docker $*"
 exit 0

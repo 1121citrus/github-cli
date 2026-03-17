@@ -16,6 +16,12 @@
 #
 # The container runs as the host user's UID/GID so that git operations
 # (e.g. gh repo create --source=.) can write to the mounted workspace.
+#
+# Additional hardening applied to every container invocation:
+#   --cap-drop ALL              drop all Linux capabilities (gh only needs
+#                               network + file I/O; no capabilities required)
+#   --security-opt no-new-privileges:true
+#                               prevent setuid/setgid privilege escalation
 
 # Read the first line of a file into a variable.  Returns 1 if the file
 # is missing, unreadable, or empty.
@@ -70,6 +76,8 @@ function github() {
 
     docker run --rm "${tty_flags[@]}" \
         --user "$(id -u):$(id -g)" \
+        --cap-drop ALL \
+        --security-opt no-new-privileges:true \
         "${auth_env[@]}" \
         -e GH_CONFIG_DIR=/gh-config \
         -v "${HOME}/.config/gh:/gh-config" \
