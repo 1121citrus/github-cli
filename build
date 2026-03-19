@@ -1,0 +1,287 @@
+#!/usr/bin/env bash
+
+# build — local CI equivalent for github-cli.
+#
+# Copyright (C) 2025–2026 James Hanlon [mailto:jim@hanlonsoftware.com]
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# SYNOPSIS
+#   build [--push] [--version VERSION] [--platform PLATFORMS]
+#         [--registry REGISTRY] [--no-sbom] [--no-provenance]
+#         [--no-lint] [--no-test] [--no-scan]
+#         [--dry-run] [--help]
+#
+# OPTIONS
+#   --push              Push the image to the registry after a successful build.
+#                       Omitting this flag builds locally only (the default).
+#   --version VERSION   Tag the image with this version string, e.g. "1.2.3".
+#                       When omitted the image is tagged "dev-<git-short-sha>"
+#                       so that local builds are never confused with released
+#                       artifacts.
+#   --platform PLATFORMS
+#                       Comma-separated list of target platforms for --push.
+#                       Default: linux/amd64,linux/arm64
+#   --registry REGISTRY Docker Hub username / registry prefix.
+#                       Default: 1121citrus
+#   --no-sbom           Skip generating an SBOM attestation (push only).
+#   --no-provenance     Skip generating a provenance attestation (push only).
+#   --no-lint           Skip hadolint Dockerfile check and shellcheck.
+#   --no-test           Skip running the test suite.
+#   --no-scan           Skip the Trivy vulnerability scan.
+#   --dry-run           Print each command without executing it.
+#   --help              Print this message and exit.
+#
+# ENVIRONMENT
+#   The following env-var overrides take precedence over the defaults above but
+#   are themselves overridden by the matching CLI flag:
+#     BUILD_VERSION, BUILD_PUSH, BUILD_PLATFORM, BUILD_REGISTRY
+#     BUILD_LINT, BUILD_TEST, BUILD_SCAN
+#
+# PREREQUISITES
+#   • docker with the buildx plugin (≥ 0.10)
+#   • shellcheck on PATH (for lint stage)
+#   • For --push: docker login <registry> must already be authenticated, plus
+#     QEMU binfmt helpers for cross-platform builds:
+#       docker run --rm --privileged tonistiigi/binfmt --install all
+#
+# STAGES (run in order; each can be skipped with --no-<stage>)
+#   1. Lint   — hadolint (Dockerfile) + shellcheck (include/, bin/, test/)
+#   2. Build  — single-platform --load into local Docker daemon
+#   3. Test   — ./test/run-all against the locally loaded image
+#   4. Scan   — Trivy CRITICAL/HIGH image scan (blocking)
+#   5. Push   — multi-platform rebuild + push to registry (only with --push)
+#
+# EXAMPLES
+#   # Local dev cycle — lint, build, test, scan
+#   ./build
+#
+#   # Release build — push version 1.2.3 and latest
+#   ./build --push --version 1.2.3
+#
+#   # Skip tests during a quick lint + build iteration
+#   ./build --no-test --no-scan
+#
+#   # Dry-run: just print each command
+#   ./build --dry-run
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Defaults — may be overridden by environment variables or CLI flags.
+# ---------------------------------------------------------------------------
+PUSH=${BUILD_PUSH:-false}
+VERSION=${BUILD_VERSION:-}
+PLATFORMS=${BUILD_PLATFORM:-linux/amd64,linux/arm64}
+REGISTRY=${BUILD_REGISTRY:-1121citrus}
+SBOM=true
+PROVENANCE=true
+LINT=${BUILD_LINT:-true}
+TEST=${BUILD_TEST:-true}
+SCAN=${BUILD_SCAN:-true}
+DRY_RUN=false
+
+IMAGE_NAME=github-cli
+
+# Tool image references — update these to pin analyser versions project-wide.
+HADOLINT_IMAGE=hadolint/hadolint
+HADOLINT_TAG=v2.12.0
+SHELLCHECK_IMAGE=koalaman/shellcheck
+SHELLCHECK_TAG=v0.10.0
+TRIVY_IMAGE=aquasec/trivy
+TRIVY_TAG=0.62.1
+
+# ---------------------------------------------------------------------------
+# Argument parsing
+# ---------------------------------------------------------------------------
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --push)             PUSH=true ;;
+        --version)          VERSION="$2"; shift ;;
+        --platform)         PLATFORMS="$2"; shift ;;
+        --registry)         REGISTRY="$2"; shift ;;
+        --no-sbom)          SBOM=false ;;
+        --no-provenance)    PROVENANCE=false ;;
+        --no-lint)          LINT=false ;;
+        --no-test)          TEST=false ;;
+        --no-scan)          SCAN=false ;;
+        --dry-run)          DRY_RUN=true ;;
+        --help|-h)
+            sed -n '3,/^# EXAMPLES/p' "$0" | grep '^#' | sed 's/^# \{0,1\}//'
+            exit 0 ;;
+        *)
+            echo "Unknown option: $1" >&2
+            exit 1 ;;
+    esac
+    shift
+done
+
+# ---------------------------------------------------------------------------
+# Resolve the image version tag.
+# ---------------------------------------------------------------------------
+if [[ -z "${VERSION}" ]]; then
+    sha=$(git -C "$(dirname "$0")" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    VERSION="dev-${sha}"
+fi
+
+# ---------------------------------------------------------------------------
+# Build metadata embedded in the image via build-args.
+# ---------------------------------------------------------------------------
+GIT_COMMIT=$(git -C "$(dirname "$0")" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE=$(date -u +%Y%m%dT%H%M%S)
+
+# ---------------------------------------------------------------------------
+# Construct the tag list.
+# "latest" is only added for non-dev (release) builds that will be pushed.
+# ---------------------------------------------------------------------------
+full_image="${REGISTRY}/${IMAGE_NAME}"
+tags=("--tag" "${full_image}:${VERSION}")
+if [[ "${PUSH}" == "true" && "${VERSION}" != dev-* ]]; then
+    tags+=("--tag" "${full_image}:latest")
+fi
+
+# Common build-args passed to every docker buildx build invocation.
+build_args=(
+    "--build-arg" "VERSION=${VERSION}"
+    "--build-arg" "GIT_COMMIT=${GIT_COMMIT}"
+    "--build-arg" "BUILD_DATE=${BUILD_DATE}"
+)
+
+# ---------------------------------------------------------------------------
+# Helper: execute a command or print it for --dry-run.
+# ---------------------------------------------------------------------------
+run() {
+    if [[ "${DRY_RUN}" == "true" ]]; then
+        echo "[DRY RUN]" "$@" >&2
+    else
+        "$@"
+    fi
+}
+
+# Script directory for build context and relative paths.
+script_dir=$(dirname "$(readlink -f "$0")")
+
+echo "Image:     ${full_image}:${VERSION}" >&2
+echo "Platforms: ${PLATFORMS}" >&2
+echo "Push:      ${PUSH}" >&2
+echo "" >&2
+
+# ---------------------------------------------------------------------------
+# Stage 1: Lint
+# ---------------------------------------------------------------------------
+if [[ "${LINT}" == "true" ]]; then
+    echo "==> Stage 1: Lint" >&2
+
+    echo "    hadolint Dockerfile" >&2
+    if [[ "${DRY_RUN}" == "true" ]]; then
+        echo "[DRY RUN] docker run --rm -i hadolint/hadolint < Dockerfile" >&2
+    else
+        docker run --rm -i "${HADOLINT_IMAGE}:${HADOLINT_TAG}" < "${script_dir}/Dockerfile"
+    fi
+
+    echo "    shellcheck include/ bin/ test/" >&2
+    (cd "${script_dir}" && run docker run --rm \
+        -v "${script_dir}:/mnt" \
+        "${SHELLCHECK_IMAGE}:${SHELLCHECK_TAG}" \
+        -x \
+        include/github \
+        bin/build \
+        test/bin/docker \
+        test/env-metadata \
+        test/gh-invocation \
+        test/image-structure \
+        test/run-all \
+        test/shell-functions)
+fi
+
+# ---------------------------------------------------------------------------
+# Stage 2: Build (local, single-platform)
+# ---------------------------------------------------------------------------
+echo "==> Stage 2: Build ${full_image}:${VERSION}" >&2
+
+host_platform=$(docker info --format '{{.OSType}}/{{.Architecture}}' 2>/dev/null \
+    || echo "linux/amd64")
+
+build_cmd=(
+    docker buildx build
+    --platform "${host_platform}"
+    "${tags[@]}"
+    "${build_args[@]}"
+    --load
+)
+
+if [[ -n "${BUILD_EXTRA_ARGS:-}" ]]; then
+    # shellcheck disable=SC2206
+    build_cmd+=(${BUILD_EXTRA_ARGS})
+fi
+
+build_cmd+=("${script_dir}")
+
+if [[ "${DRY_RUN}" == "true" ]]; then
+    echo "[DRY RUN] Would execute:" >&2
+    printf '  %s \\\n' "${build_cmd[@]}"
+else
+    "${build_cmd[@]}"
+fi
+
+# ---------------------------------------------------------------------------
+# Stage 3: Test
+# ---------------------------------------------------------------------------
+if [[ "${TEST}" == "true" ]]; then
+    echo "==> Stage 3: Test" >&2
+    (cd "${script_dir}" && run ./test/run-all)
+fi
+
+# ---------------------------------------------------------------------------
+# Stage 4: Scan (Trivy)
+# ---------------------------------------------------------------------------
+if [[ "${SCAN}" == "true" ]]; then
+    echo "==> Stage 4: Scan ${full_image}:${VERSION}" >&2
+    run docker run --rm \
+        -v /var/run/docker.sock:/var/run/docker.sock:ro \
+        "${TRIVY_IMAGE}:${TRIVY_TAG}" image \
+            --exit-code 1 \
+            --ignore-unfixed \
+            --severity HIGH,CRITICAL \
+            "${full_image}:${VERSION}"
+fi
+
+# ---------------------------------------------------------------------------
+# Stage 5: Push (multi-platform)
+# Only runs when --push is specified; rebuilds for all target platforms.
+# ---------------------------------------------------------------------------
+if [[ "${PUSH}" == "true" ]]; then
+    echo "==> Stage 5: Push ${full_image}:${VERSION} (${PLATFORMS})" >&2
+
+    if [[ "${PROVENANCE}" == "true" ]]; then
+        provenance_flag="--provenance=mode=max"
+    else
+        provenance_flag="--provenance=false"
+    fi
+
+    push_cmd=(
+        docker buildx build
+        --platform "${PLATFORMS}"
+        "${tags[@]}"
+        "${build_args[@]}"
+        "--sbom=${SBOM}"
+        "${provenance_flag}"
+        --push
+    )
+
+    if [[ -n "${BUILD_EXTRA_ARGS:-}" ]]; then
+        # shellcheck disable=SC2206
+        push_cmd+=(${BUILD_EXTRA_ARGS})
+    fi
+
+    push_cmd+=("${script_dir}")
+
+    if [[ "${DRY_RUN}" == "true" ]]; then
+        echo "[DRY RUN] Would execute:" >&2
+        printf '  %s \\\n' "${push_cmd[@]}"
+    else
+        "${push_cmd[@]}"
+    fi
+fi
+
+echo "" >&2
+echo "Done: ${full_image}:${VERSION}" >&2
