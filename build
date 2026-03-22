@@ -178,13 +178,12 @@ if [[ "${LINT}" == "true" ]]; then
         docker run --rm -i "${HADOLINT_IMAGE}:${HADOLINT_TAG}" < "${script_dir}/Dockerfile"
     fi
 
-    echo "    shellcheck include/ bin/ test/" >&2
+    echo "    shellcheck include/ test/" >&2
     (cd "${script_dir}" && run docker run --rm \
         -v "${script_dir}:/mnt" \
         "${SHELLCHECK_IMAGE}:${SHELLCHECK_TAG}" \
         -x \
         include/github \
-        bin/build \
         test/bin/docker \
         test/env-metadata \
         test/gh-invocation \

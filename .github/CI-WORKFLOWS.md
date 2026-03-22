@@ -188,7 +188,7 @@ On push to any branch or PR to main/master
   - ✅ Pass → Proceed to Build
   - ❌ Fail → Blocks all downstream
 
-[Build Job] (parallel with Lint)
+[Build Job] (after Lint)
   - Build image locally
   - Export to artifact
   - Output: artifact "docker-image"
@@ -260,4 +260,5 @@ The `edge` tag points to the latest main branch build; `latest` is reserved for 
 - `Dockerfile` — Container build definition
 - `test/run-all` — Integration test suite
 - `include/github` — Shell function library
-- `bin/build` — Build script
+- `build` — Primary local build script (lint → build → test → scan → push)
+- `bin/build` — Legacy build script (env-var interface; supports `ALPINE_SHA` digest pinning)

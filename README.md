@@ -59,12 +59,12 @@ Then use `gh` or `github` as you normally would. See the
 
 ### Environment Variables
 
-Variable | Default | Type | Notes
---- | --- | --- | ---
-`GITHUB_PAT` | None | `«string»` | GitHub Personal Access Token. Passed to the container as `GH_TOKEN`. Takes precedence over `GITHUB_PAT_FILE` and `~/.config/gh` credentials.
-`GITHUB_PAT_FILE` | None | `«file»` | Path to a file containing a GitHub PAT (first line is read). Suitable for Docker Compose secrets. Ignored when `GITHUB_PAT` is set.
-`GITHUB_USERNAME` | None | `«string»` | GitHub username. Exported as `GITHUB_LOGIN` when a PAT is also provided.
-`GITHUB_USERNAME_FILE` | None | `«file»` | Path to a file containing a GitHub username (first line is read). Suitable for Docker Compose secrets. Ignored when `GITHUB_USERNAME` is set.
+| Variable | Default | Type | Notes |
+| --- | --- | --- | --- |
+| `GITHUB_PAT` | None | `«string»` | GitHub Personal Access Token. Passed to the container as `GH_TOKEN`. Takes precedence over `GITHUB_PAT_FILE` and `~/.config/gh` credentials. |
+| `GITHUB_PAT_FILE` | None | `«file»` | Path to a file containing a GitHub PAT (first line is read). Suitable for Docker Compose secrets. Ignored when `GITHUB_PAT` is set. |
+| `GITHUB_USERNAME` | None | `«string»` | GitHub username. Exported as `GITHUB_LOGIN` when a PAT is also provided. |
+| `GITHUB_USERNAME_FILE` | None | `«file»` | Path to a file containing a GitHub username (first line is read). Suitable for Docker Compose secrets. Ignored when `GITHUB_USERNAME` is set. |
 
 ## Example: List repositories
 
@@ -154,31 +154,37 @@ gh repo list
 
 ## Building
 
-```bash
-VERSION=x.y.z bin/build
-```
-
-To build and push to Docker Hub (multi-platform `linux/amd64` + `linux/arm64`):
+The `build` script runs all stages in order — lint → build → test → scan:
 
 ```bash
-VERSION=x.y.z PUSH=true bin/build
+./build
 ```
 
-For reproducible production builds, pin the base image to a specific digest:
+To tag and push a release to Docker Hub (multi-platform `linux/amd64` + `linux/arm64`):
+
+```bash
+./build --push --version 1.2.3
+```
+
+Run `./build --help` for the full list of flags. Individual stages can be
+skipped with `--no-lint`, `--no-test`, and `--no-scan`.
+
+The build stages are:
+
+1. **Lint** — [hadolint](https://github.com/hadolint/hadolint) on the
+   Dockerfile, shellcheck on all shell scripts
+2. **Build** — single-platform local build tagged as `1121citrus/github-cli:VERSION`
+3. **Test** — runs `./test/run-all` against the locally built image
+4. **Scan** — [Trivy](https://github.com/aquasecurity/trivy) vulnerability scan
+   (exits non-zero for fixable HIGH/CRITICAL CVEs)
+5. **Push** *(only with `--push`)* — multi-platform rebuild and push to Docker Hub
+
+For reproducible production builds pinned to a specific Alpine digest, use
+`bin/build` with the `ALPINE_SHA` environment variable:
 
 ```bash
 VERSION=x.y.z ALPINE_SHA=sha256:<digest> bin/build
 ```
-
-The build script will:
-
-1. Lint the Dockerfile with [hadolint](https://github.com/hadolint/hadolint)
-2. Build the image locally and tag as `1121citrus/github-cli:VERSION`
-   and `github-cli`
-3. Scan with [Trivy](https://github.com/aquasecurity/trivy) and
-   [Docker Scout](https://docs.docker.com/scout/) for HIGH and CRITICAL
-   vulnerabilities
-4. Optionally push a multi-platform image to Docker Hub when `PUSH=true`
 
 ### Base image
 
@@ -211,10 +217,10 @@ All are only reachable via `gh attestation` commands.
 
 ## Testing
 
-The test suite requires a built Docker image. Build first, then run:
+Running `./build` executes the full pipeline including tests (Stage 3). To run
+the test suite independently against an already-built image:
 
 ```bash
-bin/build
 ./test/run-all
 ```
 

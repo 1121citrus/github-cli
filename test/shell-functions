@@ -161,6 +161,18 @@ test_pat_file_missing_returns_error() {
     _assert_contains "error message" "cannot read GITHUB_PAT_FILE" "${output}"
 }
 
+test_username_file_missing_returns_error() {
+    local output
+    unset GITHUB_PAT GITHUB_USERNAME 2>/dev/null || true
+    GITHUB_USERNAME_FILE="/nonexistent/path" output=$(_run_github_fn --version 2>&1) && {
+        unset GITHUB_USERNAME_FILE
+        echo "FAIL '${FUNCNAME[0]}': expected non-zero exit"
+        return 1
+    }
+    unset GITHUB_USERNAME_FILE
+    _assert_contains "error message" "cannot read GITHUB_USERNAME_FILE" "${output}"
+}
+
 test_plain_var_takes_precedence_over_file() {
     local output tmpfile
     tmpfile=$(mktemp)
@@ -235,6 +247,7 @@ run_tests() {
         test_pat_file_reads_secret
         test_username_file_reads_secret
         test_pat_file_missing_returns_error
+        test_username_file_missing_returns_error
         test_plain_var_takes_precedence_over_file
         test_no_tty_in_noninteractive
         test_image_tag_is_latest
