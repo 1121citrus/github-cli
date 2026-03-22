@@ -34,7 +34,6 @@ jobs:
         run: |
           shellcheck -x \
             include/github \
-            bin/build \
             test/bin/docker \
             test/env-metadata \
             test/gh-invocation \
