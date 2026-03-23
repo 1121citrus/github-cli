@@ -10,6 +10,7 @@ set -euo pipefail
 whereami=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 
 status=0
+"${whereami}/build-options"     || status=1
 "${whereami}/image-structure"   || status=1
 "${whereami}/gh-invocation"     || status=1
 "${whereami}/env-metadata"      || status=1

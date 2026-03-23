@@ -262,3 +262,8 @@ The `edge` tag points to the latest main branch build; `latest` is reserved for 
 - `include/github` — Shell function library
 - `build` — Primary local build script (lint → build → test → scan → push)
 - `bin/build` — Legacy build script (env-var interface; supports `ALPINE_SHA` digest pinning)
+
+## Local Workflow Parity
+
+- `./build` supports `--advice` (alias for `--advise`) and `--cache` for one-run scanner cache controls.
+- `test/staging` provides manual pre-release image validation plus optional Trivy/Grype/Scout/Dive checks.
