@@ -18,21 +18,23 @@
 #
 # Alpine edge is required: stable 3.21 ships github-cli 2.63 / curl 8.14 which
 # carry 12 fixable CVEs (2C+10H).  Edge ships github-cli 2.83 / curl 8.19 and
-# resolves all OS-level CVEs.  apk upgrade also upgrades zlib to 1.3.2-r0,
-# fixing the 1M+1L CVEs present in the alpine:edge base layer.
+# resolves all OS-level CVEs. Using an edge base image with apk upgrade
+# ensures all OS patches are applied.
 #
-# Nine CVEs remain; all are transitive Go module deps compiled into the gh
+# Eleven CVEs remain; all are transitive Go module deps compiled into the gh
 # binary by the Alpine package maintainer and cannot be patched here:
 #
-#   HIGH    CVE-2025-15558  github.com/docker/cli 29.0.3       fix: 29.2.0
-#   HIGH    CVE-2025-66564  sigstore/timestamp-authority 1.2.9 fix: 2.0.3
-#   HIGH    CVE-2026-24051  go.opentelemetry.io/otel/sdk 1.38  fix: 1.40.0
+#   CRITICAL CVE-2026-33186  google.golang.org/grpc 1.77.0        fix: 1.79.3
+#   HIGH    CVE-2025-15558  github.com/docker/cli 29.0.3         fix: 29.2.0
+#   HIGH    CVE-2025-66564  sigstore/timestamp-authority 1.2.9   fix: 2.0.3
+#   HIGH    CVE-2026-24051  go.opentelemetry.io/otel/sdk 1.38    fix: 1.40.0
 #   MEDIUM  CVE-2026-23992  github.com/theupdateframework/go-tuf/v2 2.3.0  fix: 2.3.1
 #   MEDIUM  CVE-2026-23991  github.com/theupdateframework/go-tuf/v2 2.3.0  fix: 2.3.1
 #   MEDIUM  CVE-2026-24686  github.com/theupdateframework/go-tuf/v2 2.3.0  fix: 2.4.1
-#   MEDIUM  CVE-2026-24117  github.com/sigstore/rekor 1.4.2    fix: 1.5.0
-#   MEDIUM  CVE-2026-23831  github.com/sigstore/rekor 1.4.2    fix: 1.5.0
-#   MEDIUM  CVE-2026-24137  github.com/sigstore/sigstore 1.9.6 fix: 1.10.4
+#   MEDIUM  CVE-2026-24117  github.com/sigstore/rekor 1.4.2      fix: 1.5.0
+#   MEDIUM  CVE-2026-23831  github.com/sigstore/rekor 1.4.2      fix: 1.5.0
+#   MEDIUM  CVE-2026-24137  github.com/sigstore/sigstore 1.9.6   fix: 1.10.4
+#   UNSPECIFIED GHSA-mqqf-5wvp-8fh8  github.com/go-chi/chi/v5 5.2.3  fix: 5.2.4
 #
 # These packages are only exercised by `gh attestation` commands.
 # Tracking: https://github.com/cli/cli (update go.mod deps)
@@ -76,18 +78,17 @@ LABEL org.opencontainers.image.title="github Command Line Interface"
 LABEL org.opencontainers.image.url="https://hub.docker.com/repository/docker/1121citrus/github-cli"
 LABEL org.opencontainers.image.vendor="1121 Citrus, LTD"
 
-# hadolint ignore=DL3017,DL3018
-RUN apk update \
-    && apk upgrade --no-cache \
-    && apk add --no-cache \
-        bash \
-        git \
-        github-cli
-
 # Create a non-privileged user that the app will run under.
 # See https://docs.docker.com/go/dockerfile-user-best-practices/
 ARG UID=10001
-RUN adduser \
+
+# hadolint ignore=DL3017,DL3018
+RUN apk upgrade --no-cache --no-interactive && \
+    apk add --no-cache \
+        bash \
+        git \
+        github-cli && \
+    adduser \
         --disabled-password --gecos "" --shell "/sbin/nologin" \
         --no-create-home --uid "${UID}" \
         github-cli

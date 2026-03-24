@@ -179,25 +179,18 @@ The build stages are:
    (exits non-zero for fixable HIGH/CRITICAL CVEs)
 5. **Push** *(only with `--push`)* — multi-platform rebuild and push to Docker Hub
 
-For reproducible production builds pinned to a specific Alpine digest, use
-`bin/build` with the `ALPINE_SHA` environment variable:
-
-```bash
-VERSION=x.y.z ALPINE_SHA=sha256:<digest> bin/build
-```
-
 ### Base image
 
 The default base is [`alpine:edge`](https://hub.docker.com/_/alpine). Stable
 [`alpine:3.21`](https://hub.docker.com/_/alpine) ships `github-cli 2.63` and
 `curl 8.14` carrying 2 CRITICAL and 13 HIGH CVEs. Edge ships `github-cli 2.83`
-and `curl 8.19` resolving all OS-level CVEs. The `apk upgrade` step also
-upgrades `zlib` to `1.3.2-r0`, fixing the 1M+1L CVEs present in the
-`alpine:edge` base layer.
+and `curl 8.19` resolving all OS-level CVEs. Using an edge base image ensures
+all OS patches are applied; transitive dependencies like zlib are upgraded
+automatically when `github-cli` and other packages are installed.
 
 ### Known unfixable CVEs
 
-Nine CVEs remain. All are transitive Go module dependencies compiled
+Eleven CVEs remain. All are transitive Go module dependencies compiled
 into the `gh` binary by the Alpine package maintainer. They cannot be
 patched at the image level and require the
 [cli/cli](https://github.com/cli/cli) project to update its `go.mod`.
@@ -205,6 +198,7 @@ All are only reachable via `gh attestation` commands.
 
 | Severity | CVE | Package | Fix |
 | --- | --- | --- | --- |
+| CRITICAL | [CVE-2026-33186](https://www.cve.org/CVERecord?id=CVE-2026-33186) | [`google.golang.org/grpc` 1.77.0](https://github.com/grpc/grpc-go) | 1.79.3 |
 | HIGH | [CVE-2025-15558](https://www.cve.org/CVERecord?id=CVE-2025-15558) | [`docker/cli` 29.0.3](https://github.com/docker/cli) | 29.2.0 |
 | HIGH | [CVE-2025-66564](https://www.cve.org/CVERecord?id=CVE-2025-66564) | [`sigstore/timestamp-authority` 1.2.9](https://github.com/sigstore/timestamp-authority) | 2.0.3 |
 | HIGH | [CVE-2026-24051](https://www.cve.org/CVERecord?id=CVE-2026-24051) | [`otel/sdk` 1.38.0](https://github.com/open-telemetry/opentelemetry-go) | 1.40.0 |
@@ -214,6 +208,7 @@ All are only reachable via `gh attestation` commands.
 | MEDIUM | [CVE-2026-24117](https://www.cve.org/CVERecord?id=CVE-2026-24117) | [`sigstore/rekor` 1.4.2](https://github.com/sigstore/rekor) | 1.5.0 |
 | MEDIUM | [CVE-2026-23831](https://www.cve.org/CVERecord?id=CVE-2026-23831) | [`sigstore/rekor` 1.4.2](https://github.com/sigstore/rekor) | 1.5.0 |
 | MEDIUM | [CVE-2026-24137](https://www.cve.org/CVERecord?id=CVE-2026-24137) | [`sigstore/sigstore` 1.9.6](https://github.com/sigstore/sigstore) | 1.10.4 |
+| UNSPECIFIED | [GHSA-mqqf-5wvp-8fh8](https://github.com/advisories/GHSA-mqqf-5wvp-8fh8) | [`go-chi/chi/v5` 5.2.3](https://github.com/go-chi/chi) | 5.2.4 |
 
 ## Testing
 

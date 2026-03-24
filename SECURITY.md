@@ -2,14 +2,8 @@
 
 ## Reporting a Vulnerability
 
-Please report security vulnerabilities by opening a **private** GitHub security
-advisory at:
-
-> **Settings → Security → Advisories → New draft security advisory**
-
-Do **not** file a public issue for security bugs.  You will receive a response
-within 5 business days.  If a fix is warranted, a patch and a new image will be
-released and the advisory will be published once the fix is in production.
+Please report security vulnerabilities through the [GitHub Security tab](https://github.com/1121citrus/github-cli/security).
+Do not open a public GitHub issue for security vulnerabilities.
 
 ---
 
@@ -25,7 +19,7 @@ released and the advisory will be published once the fix is in production.
 
 ## Known Unfixable CVEs
 
-Nine CVEs are present in every published image.  All are **transitive Go module
+Eleven CVEs are present in every published image.  All are **transitive Go module
 dependencies** compiled directly into the `gh` binary by the Alpine package
 maintainer.  They cannot be patched at the image level; the fix must come from
 the upstream [cli/cli](https://github.com/cli/cli) project updating its
@@ -36,6 +30,7 @@ Workloads that do not call `gh attestation` are not exposed.
 
 | Severity | CVE | Package | Fixed in |
 | --- | --- | --- | --- |
+| CRITICAL | [CVE-2026-33186](https://www.cve.org/CVERecord?id=CVE-2026-33186) | `google.golang.org/grpc` 1.77.0 | 1.79.3 |
 | HIGH | [CVE-2025-15558](https://www.cve.org/CVERecord?id=CVE-2025-15558) | `docker/cli` 29.0.3 | 29.2.0 |
 | HIGH | [CVE-2025-66564](https://www.cve.org/CVERecord?id=CVE-2025-66564) | `sigstore/timestamp-authority` 1.2.9 | 2.0.3 |
 | HIGH | [CVE-2026-24051](https://www.cve.org/CVERecord?id=CVE-2026-24051) | `go.opentelemetry.io/otel/sdk` 1.38 | 1.40.0 |
@@ -45,6 +40,7 @@ Workloads that do not call `gh attestation` are not exposed.
 | MEDIUM | [CVE-2026-24117](https://www.cve.org/CVERecord?id=CVE-2026-24117) | `sigstore/rekor` 1.4.2 | 1.5.0 |
 | MEDIUM | [CVE-2026-23831](https://www.cve.org/CVERecord?id=CVE-2026-23831) | `sigstore/rekor` 1.4.2 | 1.5.0 |
 | MEDIUM | [CVE-2026-24137](https://www.cve.org/CVERecord?id=CVE-2026-24137) | `sigstore/sigstore` 1.9.6 | 1.10.4 |
+| UNSPECIFIED | [GHSA-mqqf-5wvp-8fh8](https://github.com/advisories/GHSA-mqqf-5wvp-8fh8) | `go-chi/chi/v5` 5.2.3 | 5.2.4 |
 
 Tracking issue: [cli/cli upstream go.mod update](https://github.com/cli/cli)
 

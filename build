@@ -113,12 +113,15 @@ HADOLINT_IMAGE=hadolint/hadolint
 HADOLINT_TAG=v2.12.0
 SHELLCHECK_IMAGE=koalaman/shellcheck
 SHELLCHECK_TAG=v0.10.0
+MARKDOWNLINT_IMAGE=ghcr.io/igorshubovych/markdownlint-cli
+MARKDOWNLINT_TAG=v0.48.0
 TRIVY_IMAGE=aquasec/trivy
 TRIVY_TAG=0.62.1
 GRYPE_IMAGE=anchore/grype
 GRYPE_TAG=v0.87.0
 DIVE_IMAGE=wagoodman/dive
-DIVE_TAG=latest
+DIVE_TAG=v0.13.1
+DIVE_DOCKER_CLIENT_API=1.47
 
 TRIVY_CACHE_VOLUME=github-cli-trivy-cache
 GRYPE_CACHE_VOLUME=github-cli-grype-cache
@@ -201,11 +204,11 @@ parse_cache_rules() {
 
 reset_cache_db() {
     local volume_name="$1"
-    local db_dir="$2"
+    # Reset the volume by removing all contents and recreating the directory structure
     run docker run --rm \
         -v "${volume_name}:/cache" \
-        alpine:3.20 \
-        sh -c "rm -rf \"${db_dir}\" && mkdir -p \"${db_dir}\""
+        alpine:3.21 \
+        sh -c "rm -rf /cache/* && mkdir -p /cache"
 }
 
 # ---------------------------------------------------------------------------
@@ -319,6 +322,29 @@ run() {
     fi
 }
 
+# Run a command with a timeout (no external 'timeout' binary required).
+# Backgrounds the command, starts a watchdog that kills it after SECONDS,
+# then waits.  In --dry-run mode just prints the command.
+# Usage: _timed SECONDS COMMAND [ARGS...]
+_timed() {
+    local secs="$1"; shift
+    if [[ "${DRY_RUN}" == "true" ]]; then
+        echo "[DRY RUN] (${secs}s timeout)" "$@" >&2
+        return 0
+    fi
+    "$@" &
+    local _pid=$!
+    ( sleep "${secs}" && kill "${_pid}" 2>/dev/null ) &
+    local _watcher=$!
+    wait "${_pid}" 2>/dev/null; local _rc=$?
+    kill "${_watcher}" 2>/dev/null
+    wait "${_watcher}" 2>/dev/null
+    return "${_rc}"
+}
+
+SCAN_FAILED=false
+SCAN_EXIT_CODE=0
+
 # Script directory for build context and relative paths.
 script_dir=$(dirname "$(readlink -f "$0")")
 
@@ -331,11 +357,19 @@ echo "" >&2
 
 if [[ "${CACHE_RESET_TRIVY}" == "true" ]]; then
     echo "==> Cache: reset Trivy DB" >&2
-    reset_cache_db "${TRIVY_CACHE_VOLUME}" "/trivy"
+    reset_cache_db "${TRIVY_CACHE_VOLUME}"
 fi
 if [[ "${CACHE_RESET_GRYPE}" == "true" ]]; then
     echo "==> Cache: reset Grype DB" >&2
-    reset_cache_db "${GRYPE_CACHE_VOLUME}" "/"
+    reset_cache_db "${GRYPE_CACHE_VOLUME}"
+fi
+if [[ "${SCAN}" == "true" && "${CACHE_SKIP_UPDATE_TRIVY}" != "true" ]]; then
+    echo "==> Cache: warm Trivy DB" >&2
+    run docker run --rm \
+        -v "${TRIVY_CACHE_VOLUME}:/root/.cache/trivy" \
+        "${TRIVY_IMAGE}:${TRIVY_TAG}" image \
+            --quiet \
+            --download-db-only
 fi
 
 # ---------------------------------------------------------------------------
@@ -365,6 +399,13 @@ if [[ "${LINT}" == "true" ]]; then
         test/image-structure \
         test/run-all \
         test/shell-functions)
+
+    echo "    markdownlint **/*.md" >&2
+    (cd "${script_dir}" && run docker run --rm \
+        -v "${script_dir}:/md:ro" \
+        --workdir /md \
+        "${MARKDOWNLINT_IMAGE}:${MARKDOWNLINT_TAG}" \
+        "**/*.md")
 fi
 
 # ---------------------------------------------------------------------------
@@ -415,14 +456,23 @@ if [[ "${SCAN}" == "true" ]]; then
         echo "    Trivy DB update skipped for this run (--cache skip-update=trivy)" >&2
         _trivy_extra_flags+=(--skip-db-update --skip-java-db-update)
     fi
-    run docker run --rm \
+    if run docker run --rm \
         -v /var/run/docker.sock:/var/run/docker.sock:ro \
+        -v "${TRIVY_CACHE_VOLUME}:/root/.cache/trivy" \
         "${TRIVY_IMAGE}:${TRIVY_TAG}" image \
+            --quiet \
+            --no-progress \
             --exit-code 1 \
             --ignore-unfixed \
             --severity HIGH,CRITICAL \
             "${_trivy_extra_flags[@]}" \
-            "${full_image}:${VERSION}"
+            "${full_image}:${VERSION}"; then
+        :
+    else
+        SCAN_EXIT_CODE=$?
+        SCAN_FAILED=true
+        echo "    Stage 4 failed; continuing with advisory scans before returning exit code ${SCAN_EXIT_CODE}." >&2
+    fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -438,11 +488,24 @@ if [[ "${ADVISE_GRYPE}" == "true" ]]; then
         echo "    Grype DB update skipped for this run (--cache skip-update=grype)" >&2
         _grype_env+=(-e GRYPE_DB_AUTO_UPDATE=false)
     fi
-    run docker run --rm \
-        -v /var/run/docker.sock:/var/run/docker.sock:ro \
+    _grype_tar=$(mktemp /tmp/grype-scan-XXXXXX.tar)
+    # shellcheck disable=SC2064
+    trap "rm -f '${_grype_tar}'" EXIT
+    if [[ "${DRY_RUN}" == "true" ]]; then
+        echo "[DRY RUN] docker save ${full_image}:${VERSION} > ${_grype_tar}" >&2
+    else
+        docker save "${full_image}:${VERSION}" > "${_grype_tar}"
+    fi
+    _timed 300 docker run --rm \
+        -v "${_grype_tar}:/scan.tar:ro" \
+        -v "${GRYPE_CACHE_VOLUME}:/root/.cache/grype" \
         "${_grype_env[@]}" \
         "${GRYPE_IMAGE}:${GRYPE_TAG}" \
-            "${full_image}:${VERSION}" || true
+            "docker-archive:/scan.tar" || {
+        echo "    Grype scan timed out or failed (advisory only)" >&2
+    }
+    rm -f "${_grype_tar}"
+    trap - EXIT
 fi
 
 # ---------------------------------------------------------------------------
@@ -462,18 +525,32 @@ fi
 # ---------------------------------------------------------------------------
 if [[ "${ADVISE_DIVE}" == "true" ]]; then
     echo "==> Stage 5c: Advise (Dive) ${full_image}:${VERSION}" >&2
-    run docker run --rm \
-        -v /var/run/docker.sock:/var/run/docker.sock:ro \
-        "${DIVE_IMAGE}:${DIVE_TAG}" \
-            --ci \
-            "${full_image}:${VERSION}" || true
+    daemon_min_api=$(docker version --format '{{.Server.MinAPIVersion}}' 2>/dev/null || true)
+    if [[ -n "${daemon_min_api}" ]] && [[ "$(printf '%s\n' "${DIVE_DOCKER_CLIENT_API}" "${daemon_min_api}" | sort -V | tail -n1)" == "${daemon_min_api}" ]] && [[ "${daemon_min_api}" != "${DIVE_DOCKER_CLIENT_API}" ]]; then
+        echo "    Skipping Dive advisement: daemon requires Docker API >= ${daemon_min_api}, but ${DIVE_IMAGE}:${DIVE_TAG} uses client API ${DIVE_DOCKER_CLIENT_API}." >&2
+    else
+        _dive_ci_config=()
+        if [[ -f "${script_dir}/.dive-ci" ]]; then
+            _dive_ci_config=(-v "${script_dir}/.dive-ci:/.dive-ci:ro")
+        fi
+        run docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock:ro \
+            "${_dive_ci_config[@]}" \
+            "${DIVE_IMAGE}:${DIVE_TAG}" \
+                --source docker \
+                --ci \
+                --ci-config /.dive-ci \
+                "${full_image}:${VERSION}" || true
+    fi
 fi
 
 # ---------------------------------------------------------------------------
 # Stage 6: Push (multi-platform)
 # Only runs when --push is specified; rebuilds for all target platforms.
 # ---------------------------------------------------------------------------
-if [[ "${PUSH}" == "true" ]]; then
+if [[ "${PUSH}" == "true" && "${SCAN_FAILED}" == "true" ]]; then
+    echo "==> Stage 6: Push skipped because Stage 4 scan failed" >&2
+elif [[ "${PUSH}" == "true" ]]; then
     echo "==> Stage 6: Push ${full_image}:${VERSION} (${PLATFORMS})" >&2
 
     if [[ "${PROVENANCE}" == "true" ]]; then
@@ -505,6 +582,12 @@ if [[ "${PUSH}" == "true" ]]; then
     else
         "${push_cmd[@]}"
     fi
+fi
+
+if [[ "${SCAN_FAILED}" == "true" ]]; then
+    echo "" >&2
+    echo "Result: FAILED (Stage 4 scan exit ${SCAN_EXIT_CODE})" >&2
+    exit "${SCAN_EXIT_CODE}"
 fi
 
 echo "" >&2
