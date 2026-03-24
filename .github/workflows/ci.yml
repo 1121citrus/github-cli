@@ -71,9 +71,9 @@ jobs:
         with:
           context: .
           load: true
-          tags: |
-            ${{ env.IMAGE }}:${{ steps.meta.outputs.version }}
-            ${{ env.IMAGE }}:latest
+          # Tag as :latest only; test and scan stages reference this tag.
+          # The version string is embedded via build-args, not the local tag.
+          tags: ${{ env.IMAGE }}:latest
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
             GIT_COMMIT=${{ steps.meta.outputs.commit }}
@@ -113,8 +113,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
       - name: Download image artifact
         uses: actions/download-artifact@v4
         with:
