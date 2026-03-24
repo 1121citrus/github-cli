@@ -393,7 +393,6 @@ if [[ "${LINT}" == "true" ]]; then
         include/github \
         test/bin/docker \
         test/build-options \
-        test/staging \
         test/env-metadata \
         test/gh-invocation \
         test/image-structure \

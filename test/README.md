@@ -31,21 +31,6 @@ not require a built image.
 | `shell-functions` | No | `include/github` argument passing, PAT injection, TTY detection |
 | `build-options` | No | `build` script flag parsing without running a real Docker build |
 
-## Manual staging tests
-
-`test/staging` performs pre-release validation of a locally built image:
-
-```sh
-# Smoke tests only (no GitHub credentials needed):
-test/staging --no-scan --yes 1121citrus/github-cli:dev-abc1234
-
-# With Trivy scan:
-test/staging --yes 1121citrus/github-cli:dev-abc1234
-
-# With advisory scans:
-test/staging --advise all 1121citrus/github-cli:dev-abc1234
-```
-
 ## Test stubs (`test/bin/`)
 
 The `shell-functions` test uses a `docker` stub so it can exercise the
