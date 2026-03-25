@@ -74,6 +74,7 @@ Builds the Docker image locally and exports it for downstream jobs.
    - **Tag:** `1121citrus/github-cli:latest` (version string embedded via build-args, not the local tag)
    - **Build arguments:** `VERSION`, `GIT_COMMIT`, `BUILD_DATE`
    - **Output:** Loaded into local Docker daemon (`load: true`)
+   - **Layer cache:** `cache-from: type=gha` / `cache-to: type=gha,mode=max`
 
 4. **Save image for downstream jobs**
    - Exports image to `/tmp/image.tar.gz` (gzip-compressed Docker image tarball)
@@ -168,6 +169,7 @@ Builds and publishes multi-platform image to Docker Hub.
    - **Attestations:**
      - `sbom: true` — SPDX Software Bill of Materials
      - `provenance: mode=max` — SLSA Build Provenance Level 3
+   - **Layer cache:** `cache-from: type=gha` / `cache-to: type=gha,mode=max`
    - **Output:** Pushed directly to Docker Hub (no local load)
 
 ---

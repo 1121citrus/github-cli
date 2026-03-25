@@ -83,6 +83,8 @@ jobs:
             VERSION=${{ steps.meta.outputs.version }}
             GIT_COMMIT=${{ steps.meta.outputs.commit }}
             BUILD_DATE=${{ steps.meta.outputs.date }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Save image for downstream jobs
         run: docker save "$IMAGE:latest" | gzip > /tmp/image.tar.gz
@@ -204,3 +206,5 @@ jobs:
             VERSION=${{ steps.meta.outputs.version }}
             GIT_COMMIT=${{ steps.meta.outputs.commit }}
             BUILD_DATE=${{ steps.meta.outputs.date }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
