@@ -21,6 +21,12 @@ Single unified workflow handling all CI/CD stages from lint through deployment.
 - **Push:** main, master branches and `v*` version tags
 - **Pull requests:** To main or master branches
 
+### Concurrency
+
+- **Group:** `<workflow-name>-<ref>` — one concurrent run per workflow + branch/tag
+- **Branches and PRs:** Cancel any in-progress run when a newer one starts
+- **Version tags:** Never cancelled — release builds always complete
+
 ### Global Configuration
 - **Image name:** `1121citrus/github-cli`
 - **Node.js:** v24 (via `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`)
