@@ -114,12 +114,19 @@ Scans built image for known vulnerabilities.
 
 2. **Load image**
 
-3. **Trivy vulnerability scan**
+3. **Cache Trivy vulnerability DB**
+   - `~/.cache/trivy` is cached between runs with `actions/cache`; the
+     vulnerability DB is only re-downloaded when the cache is cold or the DB
+     has been updated
+
+4. **Trivy vulnerability scan**
    - **Version:** 0.35.0 (pinned for supply-chain security; update periodically from [trivy-action releases](https://github.com/aquasecurity/trivy-action/releases))
    - **Scope:** CRITICAL, HIGH severity
    - **Output format:** Table
    - **Exit code:** 1 — **blocks push** if fixable HIGH/CRITICAL CVEs found
    - `ignore-unfixed: true` — suppresses CVEs with no available patch
+   - `TRIVY_NO_PROGRESS=true` suppresses progress bars; `TRIVY_QUIET=true`
+     suppresses `INFO [vulndb]` log lines during DB download
 
 ---
 
