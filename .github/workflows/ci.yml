@@ -32,19 +32,10 @@ jobs:
           dockerfile: Dockerfile
 
       - name: Lint shell scripts with shellcheck
-        # List files explicitly: the glob test/*[!bin] is a character-class
-        # negation that excludes any file ending in 'b', 'i', or 'n' —
-        # silently skipping test/gh-invocation.  test/bin/docker also
-        # requires checking and is included here.
-        run: |
-          shellcheck -x \
-            include/github \
-            test/bin/docker \
-            test/env-metadata \
-            test/gh-invocation \
-            test/image-structure \
-            test/run-all \
-            test/shell-functions
+        uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # 2.0.0
+        with:
+          scandir: "."
+          severity: warning
 
       - name: Lint markdown with markdownlint-cli
         run: |
