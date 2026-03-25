@@ -10,7 +10,7 @@ Automated linting, building, testing, security scanning, and Docker image public
 | **Build** | All branches, PRs | Build and cache Docker image | docker-image artifact |
 | **Test** | All branches, PRs | Run integration test suite | None |
 | **Scan** | All branches, PRs | Vulnerability scanning with Trivy | None |
-| **Push** | main/master branches, version tags | Multi-platform build and push to Docker Hub | Docker Hub image |
+| **Push** | Version tags and staging branch only | Multi-platform build and push to Docker Hub | Docker Hub image |
 | **Dependabot** | Weekly (Monday 06:00 UTC) | Keep GitHub Actions versions current | None |
 
 ## CI Workflow (`ci.yml`)
@@ -18,8 +18,8 @@ Automated linting, building, testing, security scanning, and Docker image public
 Single unified workflow handling all CI/CD stages from lint through deployment.
 
 ### Trigger Events
-- **Push:** main, master branches and `v*` version tags
-- **Pull requests:** To main or master branches
+- **Push:** `main`, `master`, `staging` branches and `v*` version tags
+- **Pull requests:** To `main` or `master` branches
 
 ### Concurrency
 
@@ -138,8 +138,18 @@ Builds and publishes multi-platform image to Docker Hub.
 ### Trigger Condition
 - **Events:** `push` only (no PRs)
 - **Refs:**
-  - `refs/heads/main` or `refs/heads/master`
   - `refs/tags/v*` (semantic version tags)
+  - `refs/heads/staging`
+
+### Tagging
+
+| Trigger           | Docker Hub tags                                                     |
+| ----------------- | ------------------------------------------------------------------- |
+| Tag `v1.2.3`      | `1121citrus/github-cli:1.2.3` + `:latest`                           |
+| Push to `staging` | `1121citrus/github-cli:staging-<timestamp>` + `:staging`            |
+
+`:latest` is set **only** on version-tagged releases. Staging gets a datetime timestamp
+for traceability.
 
 ### Permissions
 
@@ -147,10 +157,11 @@ Builds and publishes multi-platform image to Docker Hub.
 
 ### Steps
 
-1. **Set build metadata**
+1. **Compute tags and build metadata**
    - Version logic:
-     - Version tag (`refs/tags/v1.2.3`) → `1.2.3`
-     - Branch push (main/master) → `edge`
+     - Version tag (`refs/tags/v1.2.3`) → version `1.2.3`, tags `image:1.2.3` + `image:latest`
+     - Staging push → version `staging-<timestamp>`, tags `image:staging-<timestamp>` + `image:staging`
+   - Captures short commit hash and UTC build timestamp
 
 2. **Set up QEMU** — Enables cross-platform compilation (arm64 on amd64 CI runner)
 
@@ -159,16 +170,10 @@ Builds and publishes multi-platform image to Docker Hub.
 4. **Log in to Docker Hub**
    - Uses secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
 
-5. **Determine tags**
-   - **Version tag pushed:** Tags as `<image>:<version>` AND `<image>:latest`
-   - **Branch pushed:** Tags as `<image>:edge` only (keeps `:latest` pointing to released versions)
-
-6. **Build and push (multi-platform)**
+5. **Build and push (multi-platform)**
    - **Platforms:** `linux/amd64`, `linux/arm64`
    - **Build arguments:** `VERSION`, `GIT_COMMIT`, `BUILD_DATE`
-   - **Attestations:**
-     - `sbom: true` — SPDX Software Bill of Materials
-     - `provenance: mode=max` — SLSA Build Provenance Level 3
+   - **Attestations:** `sbom: true` + `provenance: mode=max` (SLSA L3)
    - **Layer cache:** `cache-from: type=gha` / `cache-to: type=gha,mode=max`
    - **Output:** Pushed directly to Docker Hub (no local load)
 
@@ -181,7 +186,7 @@ Builds and publishes multi-platform image to Docker Hub.
 - `DOCKERHUB_TOKEN` — Docker Hub authentication token (personal access token recommended)
 
 ### Build Arguments (passed to Dockerfile)
-- `VERSION` — Semantic version or branch name (e.g., `1.2.3` or `edge`)
+- `VERSION` — Semantic version or staging timestamp (e.g., `1.2.3` or `staging-2026.03.25.134500`)
 - `GIT_COMMIT` — Short git commit hash (7 characters)
 - `BUILD_DATE` — ISO 8601 UTC timestamp
 
@@ -194,50 +199,24 @@ Builds and publishes multi-platform image to Docker Hub.
 ## Execution Flow
 
 ```
-On push to any branch or PR to main/master
+On push/PR
     ↓
-[Lint Job]
-  - Hadolint (Dockerfile)
-  - Shellcheck (shell scripts)
-  - ✅ Pass → Proceed to Build
-  - ❌ Fail → Blocks all downstream
+[Lint] — hadolint + shellcheck + markdownlint
+    ↓
+[Build] — single-arch image → artifact
+    ↓ (parallel)
+[Test]                        [Scan]
+ - load artifact               - load artifact
+ - run test/run-all            - Trivy CRITICAL/HIGH
+ - ✅/❌                        - ✅/❌ blocks push
 
-[Build Job] (after Lint)
-  - Build image locally
-  - Export to artifact
-  - Output: artifact "docker-image"
-
-[Test Job] (after Build)
-  - Load image from artifact
-  - Run test suite
-  - ✅ Pass → Proceed to Push gate
-  - ❌ Fail → Blocks Push
-
-[Scan Job] (after Build, parallel with Test)
-  - Load image from artifact
-  - Run Trivy scan (CRITICAL, HIGH only)
-  - ✅ No fixable HIGH/CRITICAL → Proceed
-  - ❌ Fixable HIGH/CRITICAL found → Blocks Push
-
-[Push Job] (after Test & Scan, conditional)
-  - Only on: main/master branch or v* tag push
-  - Multi-platform build & push to Docker Hub
-  - Tag:
-    - Version tag → image:X.Y.Z + image:latest
-    - Branch push → image:edge
+[Push] (tags and staging only, after Test + Scan pass)
+ - QEMU + Buildx multi-arch
+ - push amd64 + arm64
+ - SBOM + provenance
 ```
 
 ---
-
-## Tagging Strategy
-
-| Event | Image Tag | Stable |
-|-------|-----------|--------|
-| Push to main/master | `1121citrus/github-cli:edge` | No |
-| Push tag `v1.2.3` | `1121citrus/github-cli:1.2.3` + `:latest` | Yes |
-| PR or feature branch | Not pushed (test only) | — |
-
-The `edge` tag points to the latest main branch build; `latest` is reserved for released (tagged) versions.
 
 ---
 
