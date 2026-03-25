@@ -11,6 +11,7 @@ Automated linting, building, testing, security scanning, and Docker image public
 | **Test** | All branches, PRs | Run integration test suite | None |
 | **Scan** | All branches, PRs | Vulnerability scanning with Trivy | None |
 | **Push** | main/master branches, version tags | Multi-platform build and push to Docker Hub | Docker Hub image |
+| **Dependabot** | Weekly (Monday 06:00 UTC) | Keep GitHub Actions versions current | None |
 
 ## CI Workflow (`ci.yml`)
 
@@ -64,9 +65,7 @@ Builds the Docker image locally and exports it for downstream jobs.
 2. **Set up Docker Buildx** — Enables advanced Docker build features
 
 3. **Build image**
-   - **Tags:**
-     - `1121citrus/github-cli:<version>`
-     - `1121citrus/github-cli:latest`
+   - **Tag:** `1121citrus/github-cli:latest` (version string embedded via build-args, not the local tag)
    - **Build arguments:** `VERSION`, `GIT_COMMIT`, `BUILD_DATE`
    - **Output:** Loaded into local Docker daemon (`load: true`)
 
@@ -262,6 +261,19 @@ The `edge` tag points to the latest main branch build; `latest` is reserved for 
 - `include/github` — Shell function library
 - `build` — Primary local build script (lint → build → test → scan → push)
 - `bin/build` — Legacy build script (env-var interface; supports `ALPINE_SHA` digest pinning)
+
+## Automated dependency updates
+
+`dependabot.yml` configures weekly automated PRs to keep GitHub Actions current.
+
+- **Schedule:** Every Monday at 06:00 UTC
+- **Scope:** GitHub Actions (`package-ecosystem: github-actions`) — updates action pins in
+  `.github/workflows/*.yml`
+- **Labels:** `dependencies`, `github-actions`
+- **Security benefit:** Dependabot also proposes SHA-pinned digests (recommended for SLSA /
+  OpenSSF Scorecard hardening)
+
+---
 
 ## Local Workflow Parity
 
