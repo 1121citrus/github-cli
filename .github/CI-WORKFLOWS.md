@@ -145,10 +145,10 @@ Builds and publishes multi-platform image to Docker Hub.
 
 | Trigger           | Docker Hub tags                                                     |
 | ----------------- | ------------------------------------------------------------------- |
-| Tag `v1.2.3`      | `1121citrus/github-cli:1.2.3` + `:latest`                           |
-| Push to `staging` | `1121citrus/github-cli:staging-<timestamp>` + `:staging`            |
+| Tag `v1.2.3`      | `1121citrus/github-cli:1.2.3` + `:1.2` + `:1` + `:latest`          |
+| Push to `staging` | `1121citrus/github-cli:staging-<sha>` + `:staging`                  |
 
-`:latest` is set **only** on version-tagged releases. Staging gets a datetime timestamp
+`:latest` is set **only** on version-tagged releases. Staging uses a short commit SHA
 for traceability.
 
 ### Permissions
@@ -159,9 +159,9 @@ for traceability.
 
 1. **Compute tags and build metadata**
    - Version logic:
-     - Version tag (`refs/tags/v1.2.3`) → version `1.2.3`, tags `image:1.2.3` + `image:latest`
-     - Staging push → version `staging-<timestamp>`, tags `image:staging-<timestamp>` + `image:staging`
-   - Captures short commit hash and UTC build timestamp
+     - Version tag (`refs/tags/v1.2.3`) → `image:1.2.3` + `image:1.2` + `image:1` + `image:latest`
+     - Staging push → `image:staging-<sha>` + `image:staging`
+   - Captures short commit hash and UTC build timestamp via separate `extras` step
 
 2. **Set up QEMU** — Enables cross-platform compilation (arm64 on amd64 CI runner)
 
