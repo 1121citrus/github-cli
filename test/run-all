@@ -9,9 +9,13 @@ set -euo pipefail
 
 whereami=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 
-bats \
-    "${whereami}/01-build.bats" \
-    "${whereami}/02-image-structure.bats" \
-    "${whereami}/03-gh-invocation.bats" \
-    "${whereami}/04-env-metadata.bats" \
-    "${whereami}/05-shell-functions.bats"
+(
+    cd "${whereami}/.." && docker run --rm --interactive \
+        -v "${PWD}:${PWD}" \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -e "IMAGE=${IMAGE:-}" \
+        --workdir "${PWD}" \
+        --entrypoint sh \
+        bats/bats:1.13.0 \
+        -c "apk add --quiet --no-cache docker-cli >/dev/null 2>&1 && bats test"
+)

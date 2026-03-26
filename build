@@ -296,12 +296,14 @@ BUILD_DATE=$(date -u +%Y%m%dT%H%M%S)
 
 # ---------------------------------------------------------------------------
 # Construct the tag list.
-# "latest" is only added for non-dev (release) builds that will be pushed.
+# "latest" is always applied locally so test scripts that default to
+# IMAGE=:latest pick up the freshly built image.  For pushed dev builds
+# (VERSION matches dev-*), :latest is omitted to avoid polluting the registry.
 # ---------------------------------------------------------------------------
 full_image="${REGISTRY}/${IMAGE_NAME}"
-tags=("--tag" "${full_image}:${VERSION}")
-if [[ "${PUSH}" == "true" && "${VERSION}" != dev-* ]]; then
-    tags+=("--tag" "${full_image}:latest")
+tags=("--tag" "${full_image}:${VERSION}" "--tag" "${full_image}:latest")
+if [[ "${PUSH}" == "true" && "${VERSION}" == dev-* ]]; then
+    tags=("--tag" "${full_image}:${VERSION}")
 fi
 
 # Common build-args passed to every docker buildx build invocation.
@@ -392,12 +394,7 @@ if [[ "${LINT}" == "true" ]]; then
         -x \
         include/github \
         test/bin/docker \
-        test/build-options \
-        test/env-metadata \
-        test/gh-invocation \
-        test/image-structure \
-        test/run-all \
-        test/shell-functions)
+        test/run-all)
 
     echo "    markdownlint **/*.md" >&2
     (cd "${script_dir}" && run docker run --rm \
