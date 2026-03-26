@@ -104,8 +104,11 @@ jobs:
       - name: Load image
         run: gunzip -c /tmp/image.tar.gz | docker load
 
+      - name: Install bats
+        run: sudo npm install -g bats@1.13.0
+
       - name: Run test suite
-        run: ./test/run-all
+        run: bats test/01-build.bats test/02-image-structure.bats test/03-gh-invocation.bats test/04-env-metadata.bats test/05-shell-functions.bats
 
   # ── Stage 4: Security scan ────────────────────────────────────
   scan:

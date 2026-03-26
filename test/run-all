@@ -9,10 +9,9 @@ set -euo pipefail
 
 whereami=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 
-status=0
-"${whereami}/build-options"     || status=1
-"${whereami}/image-structure"   || status=1
-"${whereami}/gh-invocation"     || status=1
-"${whereami}/env-metadata"      || status=1
-"${whereami}/shell-functions"   || status=1
-exit $status
+bats \
+    "${whereami}/01-build.bats" \
+    "${whereami}/02-image-structure.bats" \
+    "${whereami}/03-gh-invocation.bats" \
+    "${whereami}/04-env-metadata.bats" \
+    "${whereami}/05-shell-functions.bats"

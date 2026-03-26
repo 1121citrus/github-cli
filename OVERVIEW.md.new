@@ -1,0 +1,295 @@
+
+## Comprehensive Exploration Report: github-cli Project
+
+### 1. **Project Structure**
+
+**Language:** Bash (shell script wrapper) + Docker
+**Type:** Docker-based CLI wrapper for GitHub CLI (`gh`)
+
+**Directory structure:**
+```
+github-cli/
+├── .github/               # GitHub Actions workflows
+│   ├── CI-WORKFLOWS.md    # CI/CD documentation
+│   ├── workflows/
+│   │   └── ci.yml         # Main GitHub Actions workflow
+│   └── dependabot.yml     # Dependency update automation
+├── bin/                   # (empty)
+├── include/
+│   └── github             # Host-side shell functions
+├── src/                   # (no source, just documentation)
+├── test/                  # Test suite
+├── build                  # Local build script (593 lines)
+├── Dockerfile             # Container image definition
+├── README.md              # Main documentation
+├── CLAUDE.md              # Claude Code instructions
+├── CONTRIBUTING.md        # Contribution guidelines
+├── SECURITY.md            # Security policy
+└── LICENSE.md             # AGPL-3.0-or-later
+```
+
+---
+
+### 2. **CI/CD Workflow**
+
+**File:** `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/.github/workflows/ci.yml`
+
+**Pipeline stages (5 stages):**
+
+1. **Lint** (Ubuntu latest)
+   - hadolint (Dockerfile)
+   - shellcheck (include/github, test/*, build script)
+   - markdownlint-cli (all .md files)
+
+2. **Build** (Ubuntu latest)
+   - Single-platform local build
+   - Exports image as gzip tarball artifact for downstream jobs
+   - Build metadata: VERSION, GIT_COMMIT, BUILD_DATE
+   - GHA layer caching enabled
+
+3. **Test** (depends on Build)
+   - Downloads image artifact
+   - Runs `./test/run-all` integration suite
+
+4. **Scan** (depends on Build, parallel with Test)
+   - Trivy vulnerability scan (CRITICAL/HIGH only)
+   - Blocks push if fixable vulnerabilities found
+   - ignore-unfixed: true
+   - Trivy DB cached
+
+5. **Push** (depends on Test + Scan)
+   - Triggers only on: version tags (`v*`) or `staging` branch
+   - Multi-platform build (linux/amd64, linux/arm64)
+   - Builds and pushes directly to Docker Hub
+   - Includes SBOM + provenance attestations (SLSA)
+   - **Tagging strategy:**
+     - `v1.2.3` → `1121citrus/github-cli:1.2.3` + `:latest`
+     - `staging` branch → `1121citrus/github-cli:staging-<timestamp>` + `:staging`
+
+**Triggers:**
+- Push: `main`, `master`, `staging` branches; `v*` tags
+- PRs: to `main`/`master`
+- Concurrency: cancels in-progress runs except for tags
+
+**Required secrets:**
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+
+**Documentation:** `.github/CI-WORKFLOWS.md` (275 lines, detailed reference)
+
+---
+
+### 3. **Build Tooling**
+
+**Main build script:** `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/build` (593 lines)
+
+**Stages (can be individually skipped):**
+1. Lint (hadolint + shellcheck + markdownlint)
+2. Build (single-arch local)
+3. Test (./test/run-all)
+4. Scan (Trivy CRITICAL/HIGH)
+5. Advise (optional: Grype, Docker Scout, Dive)
+6. Push (multi-platform, --push flag only)
+
+**Key options:**
+```bash
+./build                              # Full pipeline
+./build --push --version 1.2.3       # Release build
+./build --no-lint --no-scan          # Skip lint/scan
+./build --advise grype,scout,dive    # Advisory scans
+./build --dry-run                    # Preview commands
+```
+
+**Tool versions (pinned in build script):**
+- hadolint: v2.12.0
+- shellcheck: v0.10.0
+- markdownlint-cli: v0.48.0
+- trivy: 0.62.1
+- grype: v0.87.0
+- dive: v0.13.1
+
+**Environment variable overrides:**
+- `BUILD_VERSION`, `BUILD_PUSH`, `BUILD_PLATFORM`, `BUILD_REGISTRY`
+- `BUILD_LINT`, `BUILD_TEST`, `BUILD_SCAN`, `BUILD_ADVISE`
+
+---
+
+### 4. **Dockerfile**
+
+**File:** `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/Dockerfile`
+
+**Base image:** `alpine:edge` (not stable 3.21, due to CVE fixes)
+
+**Build arguments:**
+- `ALPINE_IMAGE` (default: `alpine:edge`)
+- `VERSION` (default: `dev`)
+- `GIT_COMMIT`, `BUILD_DATE`
+- `AUTHORS`, `LICENSE`
+- `UID` (default: 10001)
+
+**What's installed:**
+- bash, git, github-cli
+
+**Container configuration:**
+- Non-root user: `github-cli` (UID 10001)
+- No login shell (`/sbin/nologin`)
+- WORKDIR: `/workspace`
+- ENTRYPOINT: `gh`
+- CMD: `--help`
+
+**OCI Labels:** `org.opencontainers.image.*` (documentation, authors, source, revision, etc.)
+
+**Security hardening:**
+- Non-privileged user (no home dir)
+- Minimal package surface (bash, git, gh only)
+- Alpine `apk upgrade` to patch base OS
+- Documented unfixable CVEs (11 transitive Go deps in gh binary, only exposed via `gh attestation`)
+
+---
+
+### 5. **Testing Framework**
+
+**Test framework:** Bash custom test harness (no external framework like BATS)
+
+**Tests directory:** `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/test/`
+
+**Test files (run by `./test/run-all`):**
+
+| File | Requires image | Purpose |
+|------|---|---|
+| `build-options` | No | Validates `build` script flag parsing |
+| `image-structure` | Yes | Non-root user, WORKDIR, installed binaries, nologin shell |
+| `gh-invocation` | Yes | Entrypoint, `gh --version`, `gh help`, error handling |
+| `env-metadata` | Yes | `APP_*` env vars and OCI image labels |
+| `shell-functions` | No | `include/github` argument passing, PAT injection, TTY detection |
+
+**Test execution:**
+```bash
+./build                    # Runs tests as part of full pipeline
+./test/run-all            # Run all tests against built image
+./test/shell-functions    # Host-side tests only (no Docker needed)
+```
+
+**Key test features:**
+- Shell function tests use docker stub (no container needed)
+- TTY detection testing (flags TTY only for interactive shells)
+- PAT/token injection validation
+- Environment metadata validation
+
+---
+
+### 6. **Linting & Formatting**
+
+**Linters configured:**
+
+| Linter | Config file | Scope |
+|---|---|---|
+| **hadolint** | (no config) | Dockerfile |
+| **shellcheck** | (no config) | Shell scripts (include/, test/, build) |
+| **markdownlint** | `.markdownlint.json` | All .md files |
+
+**Markdownlint config:** `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/.markdownlint.json`
+- Disables rules: MD013, MD014, MD024, MD004, MD022, MD031, MD032, MD034, MD040, MD047, MD051, MD060
+- (Permissive config, mostly default with some rules relaxed)
+
+**Markdown ignore file:** `.markdownlintignore`
+
+**Other files:**
+- `.dockerignore` (excludes .git, test files, etc. from build context)
+- `.dive-ci` (Dive configuration for layer analysis)
+
+---
+
+### 7. **Release/Versioning**
+
+**Tag-driven releases:**
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+**GitHub Actions push trigger:**
+- Version tags (`v*`) → pushed as `1.2.3` + `latest`
+- `staging` branch → pushed as `staging-<timestamp>` + `staging`
+- Multi-platform build (amd64 + arm64)
+
+**Semantic versioning:** `v1.2.3` format (enforced by CI workflow)
+
+**Dependabot configuration:** `.github/dependabot.yml`
+- GitHub Actions dependency updates
+- Schedule: Weekly Monday 06:00 UTC
+- Labels: `dependencies`, `github-actions`
+- Purpose: Keep CI action versions current and SHA-pinned
+
+---
+
+### 8. **Documentation**
+
+All documentation files at repository root:
+
+| File | Purpose |
+|---|---|
+| **README.md** | Main project documentation (usage, authentication, configuration, security, testing, CI/CD) |
+| **CLAUDE.md** | Claude Code AI instructions (tone, style, permissions) |
+| **CONTRIBUTING.md** | Development workflow, build/test procedures, release process |
+| **SECURITY.md** | Vulnerability reporting, supported versions, CVE tracking, defense-in-depth measures |
+| **src/README.md** | Describes source layout (no src directory; include/github is the main host-side component) |
+| **test/README.md** | Test suite documentation |
+| **.github/CI-WORKFLOWS.md** | Detailed CI/CD pipeline reference (5 stages, execution flow, troubleshooting) |
+| **LICENSE.md** | AGPL-3.0-or-later license text |
+
+---
+
+### 9. **Key Files Summary**
+
+**CI/CD & Build:**
+- `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/.github/workflows/ci.yml` — Main GHA workflow
+- `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/build` — Local build orchestration
+- `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/.github/dependabot.yml` — Dependency automation
+
+**Dockerfile & Container:**
+- `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/Dockerfile` — Alpine-based image
+
+**Shell Functions:**
+- `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/include/github` — Host-side wrapper functions
+
+**Tests:**
+- `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/test/run-all` — Test runner
+- `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/test/shell-functions` — Shell function tests
+- `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/test/image-structure` — Container validation
+- `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/test/gh-invocation` — CLI invocation tests
+- `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/test/env-metadata` — Env/label validation
+
+**Configuration:**
+- `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/.markdownlint.json` — Markdown linting rules
+- `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/.dockerignore` — Docker build exclusions
+- `/Users/jim/Property/1121-Citrus-Avenue/1121-citrus/github-cli/.dive-ci` — Layer analysis config
+
+---
+
+### 10. **Notable Features**
+
+**Security hardening:**
+- Non-root containerization (UID 10001)
+- Capability dropping (`--cap-drop ALL`)
+- No privilege escalation (`--security-opt no-new-privileges:true`)
+- Alpine edge base for CVE patching
+- SBOM + provenance attestations (SLSA L3)
+- Pinned GitHub Actions (no @master refs)
+
+**Authentication:**
+- Priority: `GITHUB_PAT` env var > `~/.config/gh` mount
+- Docker secrets support: `GITHUB_PAT_FILE`, `GITHUB_USERNAME_FILE`
+- Container runs as host UID/GID for proper file ownership
+
+**Multi-platform support:**
+- linux/amd64 + linux/arm64 via Docker Buildx + QEMU
+
+**CVE management:**
+- 11 known unfixable transitive Go module CVEs (in gh binary, only via `gh attestation`)
+- Documented in README, SECURITY.md, and Dockerfile
+- All OS-level CVEs resolved via Alpine edge + `apk upgrade`
+
+**Reproducibility:**
+- Optional digest pinning: `ALPINE_SHA=sha256:<digest> build` for immutable builds
+- Build metadata embedded in image (VERSION, GIT_COMMIT, BUILD_DATE)
