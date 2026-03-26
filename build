@@ -488,7 +488,7 @@ if [[ "${ADVISE_GRYPE}" == "true" ]]; then
         echo "    Grype DB update skipped for this run (--cache skip-update=grype)" >&2
         _grype_env+=(-e GRYPE_DB_AUTO_UPDATE=false)
     fi
-    _grype_tar=$(mktemp /tmp/grype-scan-XXXXXX.tar)
+    _grype_tar=$(mktemp /tmp/grype-scan-XXXXXX)
     # shellcheck disable=SC2064
     trap "rm -f '${_grype_tar}'" EXIT
     if [[ "${DRY_RUN}" == "true" ]]; then
