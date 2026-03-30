@@ -100,6 +100,7 @@ PROVENANCE=true
 LINT=${BUILD_LINT:-true}
 TEST=${BUILD_TEST:-true}
 SCAN=${BUILD_SCAN:-true}
+
 ADVISE_GRYPE=false
 ADVISE_SCOUT=false
 ADVISE_DIVE=false
@@ -109,6 +110,30 @@ CACHE_RESET_GRYPE=false
 CACHE_SKIP_UPDATE_TRIVY=false
 CACHE_SKIP_UPDATE_GRYPE=false
 DRY_RUN=false
+
+# Coverage reporting (kcov via bats-kcov)
+COVERAGE=true
+BATS_KCOV_IMAGE=1121citrus/bats-kcov
+BATS_KCOV_TAG=latest
+# ---------------------------------------------------------------------------
+# Stage 3c: Coverage (kcov — advisory, never blocks)
+# ---------------------------------------------------------------------------
+if [[ "${TEST}" == "true" && "${COVERAGE}" == "true" ]]; then
+    echo "==> Stage 3c: Coverage" >&2
+    if [[ "${DRY_RUN}" == "true" ]]; then
+        echo "[DRY RUN] docker run --rm --cap-add SYS_PTRACE --security-opt seccomp=unconfined " >&2
+        echo "[DRY RUN]   -v ${script_dir}:/code:ro -w /code ${BATS_KCOV_IMAGE}:${BATS_KCOV_TAG} bats-coverage test/*" >&2
+    else
+        docker run --rm \
+            --cap-add SYS_PTRACE \
+            --security-opt seccomp=unconfined \
+            -v "${script_dir}:/code:ro" \
+            -w /code \
+            "${BATS_KCOV_IMAGE}:${BATS_KCOV_TAG}" \
+            bats-coverage test/* \
+            >&2 || echo "    Coverage run failed (advisory only)" >&2
+    fi
+fi
 
 IMAGE_NAME=github-cli
 
@@ -386,21 +411,11 @@ fi
 # ---------------------------------------------------------------------------
 # Stage 1: Lint
 # ---------------------------------------------------------------------------
-if [[ "${LINT}" == "true" ]]; then
-    echo "==> Stage 1: Lint" >&2
-
-    echo "    hadolint Dockerfile" >&2
     if [[ "${DRY_RUN}" == "true" ]]; then
-        echo "[DRY RUN] docker run --rm -i hadolint/hadolint < Dockerfile" >&2
-    else
-        docker run --rm -i "${HADOLINT_IMAGE}:${HADOLINT_TAG}" < "${script_dir}/Dockerfile"
-    fi
-
-    echo "    shellcheck include/ test/" >&2
-    (cd "${script_dir}" && run docker run --rm \
-        -v "${script_dir}:/mnt" \
-        "${SHELLCHECK_IMAGE}:${SHELLCHECK_TAG}" \
+        echo "[DRY RUN] docker run --rm --cap-add SYS_PTRACE --security-opt seccomp=unconfined \
         -x \
+    else
+        docker run --rm \
         include/github \
         test/bin/docker \
         test/run-all)
@@ -409,6 +424,7 @@ if [[ "${LINT}" == "true" ]]; then
     (cd "${script_dir}" && run docker run --rm \
         -v "${script_dir}:/md:ro" \
         --workdir /md \
+    fi
         "${MARKDOWNLINT_IMAGE}:${MARKDOWNLINT_TAG}" \
         "**/*.md")
 fi
@@ -593,6 +609,33 @@ if [[ "${SCAN_FAILED}" == "true" ]]; then
     echo "" >&2
     echo "Result: FAILED (Stage 4 scan exit ${SCAN_EXIT_CODE})" >&2
     exit "${SCAN_EXIT_CODE}"
+fi
+
+
+# ---------------------------------------------------------------------------
+# Stage 3c: Coverage (kcov — advisory, never blocks)
+#
+# Reruns the bats suite through kcov to produce a per-file line-coverage
+# report for src/.  Uses 1121citrus/bats-kcov (kcov + bats + jq pre-bundled).
+# Requires SYS_PTRACE; works on macOS Docker Desktop with the flags below.
+# ---------------------------------------------------------------------------
+if [[ "${TEST}" == "true" && "${COVERAGE}" == "true" ]]; then
+    echo "==> Stage 3c: Coverage" >&2
+
+    if [[ "${DRY_RUN}" == "true" ]]; then
+        echo "[DRY RUN] docker run --rm --cap-add SYS_PTRACE --security-opt seccomp=unconfined \" >&2
+        echo "[DRY RUN]   -v ${script_dir}:/code:ro -w /code ${BATS_KCOV_IMAGE}:${BATS_KCOV_TAG} bats-coverage <test files>" >&2
+    else
+        docker run --rm \
+            --cap-add SYS_PTRACE \
+            --security-opt seccomp=unconfined \
+            -v "${script_dir}:/code:ro" \
+            -w /code \
+            "${BATS_KCOV_IMAGE}:${BATS_KCOV_TAG}" \
+            bats-coverage \
+                test/run-all \
+            >&2 || echo "    Coverage run failed (advisory only)" >&2
+    fi
 fi
 
 echo "" >&2
