@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
-# test/05-shell-functions.bats — test include/github shell functions.
+# test/05-shell-functions.bats — test src/github shell functions.
 #
-# Sources include/github and verifies argument construction without actually
+# Sources src/github and verifies argument construction without actually
 # running Docker (docker is stubbed via test/bin/docker).
 #
 # Copyright (C) 2026 James Hanlon [mailto:jim@hanlonsoftware.com]
@@ -9,18 +9,18 @@
 
 setup() {
     WHEREAMI="${BATS_TEST_DIRNAME}"
-    ROOT="${WHEREAMI}/.."
-    chmod +x "${WHEREAMI}/bin/"*
+    ROOT="$(cd "${WHEREAMI}/.." && pwd)"
+    chmod +x "${WHEREAMI}/bin/"* 2>/dev/null || true
     export WHEREAMI ROOT
 }
 
-# Helper: source include/github with the docker stub on PATH, then invoke
+# Helper: source src/github with the docker stub on PATH, then invoke
 # github(). Captures the docker command line emitted by the stub.
 _run_github_fn() {
     (
         export PATH="${WHEREAMI}/bin:${PATH}"
-        # shellcheck source=../include/github
-        source "${ROOT}/include/github"
+        # shellcheck source=../src/github
+        source "${ROOT}/src/github"
         github "$@"
     )
 }
@@ -164,8 +164,8 @@ _run_github_fn() {
     out_github=$(_run_github_fn --version)
     out_gh=$(
         export PATH="${WHEREAMI}/bin:${PATH}"
-        # shellcheck source=../include/github
-        source "${ROOT}/include/github"
+        # shellcheck source=../src/github
+        source "${ROOT}/src/github"
         gh --version
     )
     echo "github output: ${out_github}"
@@ -185,4 +185,65 @@ _run_github_fn() {
     output=$(_run_github_fn --version)
     echo "output: ${output}"
     [[ "${output}" == *"no-new-privileges:true"* ]]
+}
+
+@test "empty GITHUB_PAT_FILE returns error" {
+    local tmpfile output
+    tmpfile=$(mktemp)
+    # empty file — _read_secret_file returns 1 for empty value
+    unset GITHUB_PAT 2>/dev/null || true
+    GITHUB_PAT_FILE="${tmpfile}" output=$(_run_github_fn --version 2>&1) && {
+        echo "expected non-zero exit"
+        false
+    }
+    rm -f "${tmpfile}"
+    echo "output: ${output}"
+    [[ "${output}" == *"cannot read GITHUB_PAT_FILE"* ]]
+}
+
+@test "empty GITHUB_USERNAME_FILE returns error" {
+    local tmpfile_pat tmpfile_user output
+    tmpfile_pat=$(mktemp)
+    tmpfile_user=$(mktemp)
+    echo "ghp_test" > "${tmpfile_pat}"
+    # leave tmpfile_user empty — _read_secret_file returns 1 for empty value
+    unset GITHUB_PAT GITHUB_USERNAME 2>/dev/null || true
+    GITHUB_PAT_FILE="${tmpfile_pat}" GITHUB_USERNAME_FILE="${tmpfile_user}" \
+        output=$(_run_github_fn --version 2>&1) && {
+        echo "expected non-zero exit"
+        false
+    }
+    rm -f "${tmpfile_pat}" "${tmpfile_user}"
+    echo "output: ${output}"
+    [[ "${output}" == *"cannot read GITHUB_USERNAME_FILE"* ]]
+}
+
+@test "GITHUB_USERNAME and GITHUB_PAT together export GITHUB_LOGIN" {
+    local login
+    login=$(
+        export PATH="${WHEREAMI}/bin:${PATH}"
+        # shellcheck source=../src/github
+        source "${ROOT}/src/github"
+        GITHUB_PAT="ghp_test" GITHUB_USERNAME="testuser" github --version >/dev/null
+        echo "${GITHUB_LOGIN:-}"
+    )
+    echo "login: ${login}"
+    [ "${login}" = "testuser" ]
+}
+
+@test "-t flag present when stdin and stdout are terminals" {
+    command -v script > /dev/null 2>&1 || skip "script command not available"
+    local tmpscript output
+    tmpscript=$(mktemp)
+    cat > "${tmpscript}" <<EOF
+#!/usr/bin/env bash
+PATH="${WHEREAMI}/bin:${PATH}"
+source "${ROOT}/src/github"
+github --version
+EOF
+    chmod +x "${tmpscript}"
+    output=$(script -q -c "${tmpscript}" /dev/null 2>/dev/null | tr -d '\r') || true
+    rm -f "${tmpscript}"
+    echo "output: ${output}"
+    [[ "${output}" == *" -t "* ]]
 }
