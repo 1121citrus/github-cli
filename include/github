@@ -23,26 +23,26 @@
 #   --security-opt no-new-privileges:true
 #                               prevent setuid/setgid privilege escalation
 
-# Read the first line of a file into a variable.  Returns 1 if the file
-# is missing, unreadable, or empty.
-_read_secret_file() {
-    local file=$1
-    [[ -r "${file}" ]] || return 1
-    local value
-    IFS= read -r value < "${file}" || true
-    [[ -n "${value}" ]] || return 1
-    printf '%s' "${value}"
-}
-
 function gh() {
     github "$@"
 }
 
 function github() {
+    function __github_cli__include__github__read_secret_file() {
+        # Read the first line of a file into a variable.  Returns 1 if the file
+        # is missing, unreadable, or empty.
+        local file=$1
+        [[ -r "${file}" ]] || return 1
+        local value
+        IFS= read -r value < "${file}" || true
+        [[ -n "${value}" ]] || return 1
+        printf '%s' "${value}"
+    }
+
     # Resolve _FILE variants when the plain env var is not set.
     local pat="${GITHUB_PAT:-}"
     if [[ -z "${pat}" && -n "${GITHUB_PAT_FILE:-}" ]]; then
-        pat=$(_read_secret_file "${GITHUB_PAT_FILE}") || {
+        pat=$(__github_cli__include__github__read_secret_file "${GITHUB_PAT_FILE}") || {
             echo "github-cli: cannot read GITHUB_PAT_FILE (${GITHUB_PAT_FILE})" >&2
             return 1
         }
@@ -50,7 +50,7 @@ function github() {
 
     local username="${GITHUB_USERNAME:-}"
     if [[ -z "${username}" && -n "${GITHUB_USERNAME_FILE:-}" ]]; then
-        username=$(_read_secret_file "${GITHUB_USERNAME_FILE}") || {
+        username=$(__github_cli__include__github__read_secret_file "${GITHUB_USERNAME_FILE}") || {
             echo "github-cli: cannot read GITHUB_USERNAME_FILE (${GITHUB_USERNAME_FILE})" >&2
             return 1
         }
