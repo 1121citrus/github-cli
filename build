@@ -63,7 +63,7 @@
 #       docker run --rm --privileged tonistiigi/binfmt --install all
 #
 # STAGES (run in order; each can be skipped with --no-<stage>)
-#   1. Lint   — hadolint (Dockerfile) + shellcheck (include/, bin/, test/)
+#   1. Lint   — hadolint (Dockerfile) + shellcheck (src/, bin/, test/)
 #   2. Build  — single-platform --load into local Docker daemon
 #   3. Test   — ./test/run-all against the locally loaded image
 #   4. Scan   — Trivy CRITICAL/HIGH image scan (blocking)
@@ -100,15 +100,21 @@ PROVENANCE=true
 LINT=${BUILD_LINT:-true}
 TEST=${BUILD_TEST:-true}
 SCAN=${BUILD_SCAN:-true}
+
+ADVISE_COVERAGE=false
+ADVISE_DIVE=false
 ADVISE_GRYPE=false
 ADVISE_SCOUT=false
-ADVISE_DIVE=false
 _ADVISE_EXPLICIT=false   # set true when --advise or --no-advise is passed
 CACHE_RESET_TRIVY=false
 CACHE_RESET_GRYPE=false
 CACHE_SKIP_UPDATE_TRIVY=false
 CACHE_SKIP_UPDATE_GRYPE=false
 DRY_RUN=false
+
+# Coverage reporting (kcov via bats-kcov)
+BATS_KCOV_IMAGE=1121citrus/bats-kcov
+BATS_KCOV_TAG=latest
 
 IMAGE_NAME=github-cli
 
@@ -237,7 +243,7 @@ while [[ $# -gt 0 ]]; do
             if [[ $# -gt 1 && ! "$2" =~ ^-- ]]; then
                 advisements="$2"; shift
             else
-                advisements="grype,scout"
+                advisements="all"
             fi
             # Parse the comma-delimited list
             ADVISE_GRYPE=false
@@ -248,19 +254,21 @@ while [[ $# -gt 0 ]]; do
                 adv="${adv//[[:space:]]/}"
                 adv="${adv,,}"
                 case "$adv" in
+                    coverage)  ADVISE_COVERAGE=true ;;
+                    dive)   ADVISE_DIVE=true ;;
                     grype)  ADVISE_GRYPE=true ;;
                     scout)  ADVISE_SCOUT=true ;;
-                    dive)   ADVISE_DIVE=true ;;
-                    all)    ADVISE_GRYPE=true; ADVISE_SCOUT=true; ADVISE_DIVE=true ;;
-                    none)   ADVISE_GRYPE=false; ADVISE_SCOUT=false; ADVISE_DIVE=false ;;
+                    all)    ADVISE_GRYPE=true; ADVISE_SCOUT=true; ADVISE_DIVE=true; ADVISE_COVERAGE=true ;;
+                    none)   ADVISE_GRYPE=false; ADVISE_SCOUT=false; ADVISE_DIVE=false; ADVISE_COVERAGE=false ;;
                     *)      echo "Unknown advisement: $adv" >&2; exit 1 ;;
                 esac
             done
             ;;
         --no-advise)
+            ADVISE_COVERAGE=false
+            ADVISE_DIVE=false
             ADVISE_GRYPE=false
             ADVISE_SCOUT=false
-            ADVISE_DIVE=false
             _ADVISE_EXPLICIT=true
             ;;
         --cache)
@@ -281,6 +289,9 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+
+# Script directory for build context and relative paths.
+script_dir=$(dirname "$(readlink -f "$0")")
 
 # --no-scan implies --no-advise unless --advise was given explicitly.
 if [[ "${SCAN}" == "false" && "${_ADVISE_EXPLICIT}" == "false" ]]; then
@@ -390,20 +401,18 @@ if [[ "${LINT}" == "true" ]]; then
     echo "==> Stage 1: Lint" >&2
 
     echo "    hadolint Dockerfile" >&2
-    if [[ "${DRY_RUN}" == "true" ]]; then
-        echo "[DRY RUN] docker run --rm -i hadolint/hadolint < Dockerfile" >&2
-    else
-        docker run --rm -i "${HADOLINT_IMAGE}:${HADOLINT_TAG}" < "${script_dir}/Dockerfile"
-    fi
-
-    echo "    shellcheck include/ test/" >&2
     (cd "${script_dir}" && run docker run --rm \
-        -v "${script_dir}:/mnt" \
+        -i "${HADOLINT_IMAGE}:${HADOLINT_TAG}" \
+        hadolint - < Dockerfile)
+
+    echo "    shellcheck src/ bin/ test/" >&2
+    (cd "${script_dir}" && run docker run --rm \
+        -v "${script_dir}:/src:ro" \
         "${SHELLCHECK_IMAGE}:${SHELLCHECK_TAG}" \
         -x \
-        include/github \
-        test/bin/docker \
-        test/run-all)
+        /src/src/github \
+        /src/test/bin/docker \
+        /src/test/run-all)
 
     echo "    markdownlint **/*.md" >&2
     (cd "${script_dir}" && run docker run --rm \
@@ -550,6 +559,37 @@ if [[ "${ADVISE_DIVE}" == "true" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Stage 5d: Coverage (kcov — advisory, never blocks)
+#
+# Reruns the bats suite through kcov to produce a per-file line-coverage
+# report for src/.  Uses 1121citrus/bats-kcov (kcov + bats + jq pre-bundled).
+# Requires SYS_PTRACE; works on macOS Docker Desktop with the flags below.
+# ---------------------------------------------------------------------------
+if [[ "${ADVISE_COVERAGE}" == "true" ]]; then
+    echo "==> Stage 3c: Coverage" >&2
+
+    if [[ "${DRY_RUN}" == "true" ]]; then
+        echo "[DRY RUN] docker run --rm --cap-add SYS_PTRACE --security-opt seccomp=unconfined " >&2
+        echo "[DRY RUN]   -v ${script_dir}:/code:ro -w /code ${BATS_KCOV_IMAGE}:${BATS_KCOV_TAG} bats-coverage <test files>" >&2
+    else
+        docker run --rm \
+            --cap-add SYS_PTRACE \
+            --security-opt seccomp=unconfined \
+            -v "${script_dir}:/code:ro" \
+            -w /code \
+            "${BATS_KCOV_IMAGE}:${BATS_KCOV_TAG}" \
+            bats-coverage \
+                test/01-build.bats \
+                test/02-image-structure.bats \
+                test/03-gh-invocation.bats \
+                test/04-env-metadata.bats \
+                test/05-shell-functions.bats \
+                test/06-image-metadata.bats \
+            >&2 || echo "    Coverage run failed (advisory only)" >&2
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # Stage 6: Push (multi-platform)
 # Only runs when --push is specified; rebuilds for all target platforms.
 # ---------------------------------------------------------------------------
@@ -594,6 +634,7 @@ if [[ "${SCAN_FAILED}" == "true" ]]; then
     echo "Result: FAILED (Stage 4 scan exit ${SCAN_EXIT_CODE})" >&2
     exit "${SCAN_EXIT_CODE}"
 fi
+
 
 echo "" >&2
 echo "Done: ${full_image}:${VERSION}" >&2
