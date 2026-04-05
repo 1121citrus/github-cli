@@ -115,25 +115,6 @@ DRY_RUN=false
 COVERAGE=true
 BATS_KCOV_IMAGE=1121citrus/bats-kcov
 BATS_KCOV_TAG=latest
-# ---------------------------------------------------------------------------
-# Stage 3c: Coverage (kcov — advisory, never blocks)
-# ---------------------------------------------------------------------------
-if [[ "${TEST}" == "true" && "${COVERAGE}" == "true" ]]; then
-    echo "==> Stage 3c: Coverage" >&2
-    if [[ "${DRY_RUN}" == "true" ]]; then
-        echo "[DRY RUN] docker run --rm --cap-add SYS_PTRACE --security-opt seccomp=unconfined " >&2
-        echo "[DRY RUN]   -v ${script_dir}:/code:ro -w /code ${BATS_KCOV_IMAGE}:${BATS_KCOV_TAG} bats-coverage test/*" >&2
-    else
-        docker run --rm \
-            --cap-add SYS_PTRACE \
-            --security-opt seccomp=unconfined \
-            -v "${script_dir}:/code:ro" \
-            -w /code \
-            "${BATS_KCOV_IMAGE}:${BATS_KCOV_TAG}" \
-            bats-coverage test/* \
-            >&2 || echo "    Coverage run failed (advisory only)" >&2
-    fi
-fi
 
 IMAGE_NAME=github-cli
 
@@ -307,6 +288,9 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+# Script directory for build context and relative paths.
+script_dir=$(dirname "$(readlink -f "$0")")
+
 # --no-scan implies --no-advise unless --advise was given explicitly.
 if [[ "${SCAN}" == "false" && "${_ADVISE_EXPLICIT}" == "false" ]]; then
     ADVISE_GRYPE=false
@@ -411,20 +395,27 @@ fi
 # ---------------------------------------------------------------------------
 # Stage 1: Lint
 # ---------------------------------------------------------------------------
-    if [[ "${DRY_RUN}" == "true" ]]; then
-        echo "[DRY RUN] docker run --rm --cap-add SYS_PTRACE --security-opt seccomp=unconfined \
+if [[ "${LINT}" == "true" ]]; then
+    echo "==> Stage 1: Lint" >&2
+
+    echo "    hadolint Dockerfile" >&2
+    (cd "${script_dir}" && run docker run --rm \
+        -i "${HADOLINT_IMAGE}:${HADOLINT_TAG}" \
+        hadolint - < Dockerfile)
+
+    echo "    shellcheck include/ bin/ test/" >&2
+    (cd "${script_dir}" && run docker run --rm \
+        -v "${script_dir}:/src:ro" \
+        "${SHELLCHECK_IMAGE}:${SHELLCHECK_TAG}" \
         -x \
-    else
-        docker run --rm \
-        include/github \
-        test/bin/docker \
-        test/run-all)
+        /src/include/github \
+        /src/test/bin/docker \
+        /src/test/run-all)
 
     echo "    markdownlint **/*.md" >&2
     (cd "${script_dir}" && run docker run --rm \
         -v "${script_dir}:/md:ro" \
         --workdir /md \
-    fi
         "${MARKDOWNLINT_IMAGE}:${MARKDOWNLINT_TAG}" \
         "**/*.md")
 fi
@@ -623,8 +614,8 @@ if [[ "${TEST}" == "true" && "${COVERAGE}" == "true" ]]; then
     echo "==> Stage 3c: Coverage" >&2
 
     if [[ "${DRY_RUN}" == "true" ]]; then
-        echo "[DRY RUN] docker run --rm --cap-add SYS_PTRACE --security-opt seccomp=unconfined \" >&2
-        echo "[DRY RUN]   -v ${script_dir}:/code:ro -w /code ${BATS_KCOV_IMAGE}:${BATS_KCOV_TAG} bats-coverage <test files>" >&2
+        echo "[DRY RUN] docker run --rm --cap-add SYS_PTRACE --security-opt seccomp=unconfined " >&2
+        echo "[DRY RUN]   -v ${script_dir}:/code:ro -w /code ${BATS_KCOV_IMAGE}:${BATS_KCOV_TAG} bats-coverage test/run-all" >&2
     else
         docker run --rm \
             --cap-add SYS_PTRACE \
@@ -632,8 +623,7 @@ if [[ "${TEST}" == "true" && "${COVERAGE}" == "true" ]]; then
             -v "${script_dir}:/code:ro" \
             -w /code \
             "${BATS_KCOV_IMAGE}:${BATS_KCOV_TAG}" \
-            bats-coverage \
-                test/run-all \
+            bats-coverage test/run-all \
             >&2 || echo "    Coverage run failed (advisory only)" >&2
     fi
 fi
