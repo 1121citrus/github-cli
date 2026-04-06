@@ -7,7 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.5](https://github.com/1121citrus/github-cli/compare/v1.0.4...v1.0.5) (2026-04-06)
 
-
 ### Bug Fixes
 
 * build script syntax and unbound variable errors ([ae0f48d](https://github.com/1121citrus/github-cli/commit/ae0f48d7d13eccae70d9d86a090cecee9f1db14f))
