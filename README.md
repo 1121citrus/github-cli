@@ -41,10 +41,10 @@ providing a containerized `gh` command with your existing GitHub authentication.
 
 ## Usage
 
-Source the shell functions from `include/github` in your `.bashrc` or `.bash_profile`:
+Source the shell functions from GitHub in your `.bashrc` or `.bash_profile`:
 
 ```bash
-source /path/to/github-cli/include/github
+source <(curl -fsSL https://raw.githubusercontent.com/1121citrus/github-cli/main/src/github)
 ```
 
 Then use `gh` or `github` as you normally would. See the
@@ -86,7 +86,7 @@ https://github.com/1121citrus/github-cli/pull/1
 
 ## Configuration
 
-The `include/github` file provides two shell functions:
+The `src/github` file provides two shell functions:
 
 | Function | Description |
 | --- | --- |
@@ -226,7 +226,7 @@ Individual test files can also be run directly:
 | `test/image-structure` | Non-root user, WORKDIR, installed binaries, nologin shell |
 | `test/gh-invocation` | Entrypoint, `gh --version`, `gh help`, unknown-command handling |
 | `test/env-metadata` | Build-time `APP_*` env vars and OCI labels |
-| `test/shell-functions` | `include/github` argument passing, PAT injection, TTY detection (uses a docker stub — no image required) |
+| `test/shell-functions` | `src/github` argument passing, PAT injection, TTY detection (uses a docker stub — no image required) |
 
 To run only the shell-function tests (no Docker image needed):
 
