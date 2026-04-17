@@ -1,0 +1,27 @@
+# Grype ignore rules — transitive Go module CVEs compiled into the gh binary.
+# All are compiled into the gh binary by the Alpine package maintainer and
+# cannot be patched at the image level; the fix must come from upstream
+# cli/cli updating its go.mod dependencies.
+# All entries are documented in SECURITY.md.
+
+ignore:
+  # github.com/docker/cli v29.0.3 — CVE-2025-15558
+  # Only exercised by gh attestation sub-commands.
+  - vulnerability: GHSA-p436-gjf2-799p
+    package:
+      name: github.com/docker/cli
+      type: go-module
+
+  # github.com/sigstore/timestamp-authority v1.2.9 — CVE-2025-66564
+  # Only exercised by gh attestation sub-commands.
+  - vulnerability: GHSA-4qg8-fj49-pxjh
+    package:
+      name: github.com/sigstore/timestamp-authority
+      type: go-module
+
+  # go.opentelemetry.io/otel/sdk v1.38.0 — CVE-2026-24051
+  # Only exercised by gh attestation sub-commands.
+  - vulnerability: GHSA-9h8m-3fm2-qjrq
+    package:
+      name: go.opentelemetry.io/otel/sdk
+      type: go-module

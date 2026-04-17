@@ -21,13 +21,15 @@
 # resolves all OS-level CVEs. Using an edge base image with apk upgrade
 # ensures all OS patches are applied.
 #
-# Eleven CVEs remain; all are transitive Go module deps compiled into the gh
+# Thirteen CVEs remain; all are transitive Go module deps compiled into the gh
 # binary by the Alpine package maintainer and cannot be patched here:
 #
 #   CRITICAL CVE-2026-33186  google.golang.org/grpc 1.77.0        fix: 1.79.3
 #   HIGH    CVE-2025-15558  github.com/docker/cli 29.0.3         fix: 29.2.0
 #   HIGH    CVE-2025-66564  sigstore/timestamp-authority 1.2.9   fix: 2.0.3
 #   HIGH    CVE-2026-24051  go.opentelemetry.io/otel/sdk 1.38    fix: 1.40.0
+#   HIGH    CVE-2026-39883  go.opentelemetry.io/otel/sdk 1.38    fix: 1.43.0
+#   HIGH    CVE-2026-34986  github.com/go-jose/go-jose/v4 4.1.3  fix: 4.1.4
 #   MEDIUM  CVE-2026-23992  github.com/theupdateframework/go-tuf/v2 2.3.0  fix: 2.3.1
 #   MEDIUM  CVE-2026-23991  github.com/theupdateframework/go-tuf/v2 2.3.0  fix: 2.3.1
 #   MEDIUM  CVE-2026-24686  github.com/theupdateframework/go-tuf/v2 2.3.0  fix: 2.4.1

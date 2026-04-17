@@ -518,11 +518,19 @@ if [[ "${ADVISE_GRYPE}" == "true" ]]; then
     else
         docker save "${full_image}:${VERSION}" > "${_grype_tar}"
     fi
+    _grype_vol=()
+    _grype_cfg=()
+    if [[ -f "${script_dir}/.grype.yaml" ]]; then
+        _grype_vol=(-v "${script_dir}/.grype.yaml:/.grype.yaml:ro")
+        _grype_cfg=(--config /.grype.yaml)
+    fi
     _timed 300 docker run --rm \
         -v "${_grype_tar}:/scan.tar:ro" \
         -v "${GRYPE_CACHE_VOLUME}:/root/.cache/grype" \
+        "${_grype_vol[@]}" \
         "${_grype_env[@]}" \
         "${GRYPE_IMAGE}:${GRYPE_TAG}" \
+            "${_grype_cfg[@]}" \
             "docker-archive:/scan.tar" || {
         echo "    Grype scan timed out or failed (advisory only)" >&2
     }
