@@ -409,10 +409,18 @@ if [[ "${LINT}" == "true" ]]; then
     (cd "${script_dir}" && run docker run --rm \
         -v "${script_dir}:/src:ro" \
         "${SHELLCHECK_IMAGE}:${SHELLCHECK_TAG}" \
+        -S warning \
         -x \
+        /src/build \
         /src/src/github \
         /src/test/bin/docker \
-        /src/test/run-all)
+        /src/test/run-all \
+        /src/test/01-build.bats \
+        /src/test/02-image-structure.bats \
+        /src/test/03-gh-invocation.bats \
+        /src/test/04-env-metadata.bats \
+        /src/test/05-shell-functions.bats \
+        /src/test/06-image-metadata.bats)
 
     echo "    markdownlint **/*.md" >&2
     (cd "${script_dir}" && run docker run --rm \

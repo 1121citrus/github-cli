@@ -71,7 +71,7 @@ _run_github_fn() {
 
 @test "GH_TOKEN passed when GITHUB_PAT is set" {
     local output
-    GITHUB_PAT="ghp_test123" output=$(_run_github_fn --version)
+    output=$(GITHUB_PAT="ghp_test123" _run_github_fn --version)
     echo "output: ${output}"
     [[ "${output}" == *"GH_TOKEN=ghp_test123"* ]]
 }
@@ -96,7 +96,7 @@ _run_github_fn() {
     echo "ghp_fromfile" > "${tmpfile}"
     unset GITHUB_PAT 2>/dev/null || true
     local output
-    GITHUB_PAT_FILE="${tmpfile}" output=$(_run_github_fn --version)
+    output=$(GITHUB_PAT_FILE="${tmpfile}" _run_github_fn --version)
     rm -f "${tmpfile}"
     echo "output: ${output}"
     [[ "${output}" == *"GH_TOKEN=ghp_fromfile"* ]]
@@ -110,8 +110,7 @@ _run_github_fn() {
     echo "fileuser" > "${tmpfile_user}"
     unset GITHUB_PAT GITHUB_USERNAME 2>/dev/null || true
     local output
-    GITHUB_PAT_FILE="${tmpfile_pat}" GITHUB_USERNAME_FILE="${tmpfile_user}" \
-        output=$(_run_github_fn --version)
+    output=$(GITHUB_PAT_FILE="${tmpfile_pat}" GITHUB_USERNAME_FILE="${tmpfile_user}" _run_github_fn --version)
     rm -f "${tmpfile_pat}" "${tmpfile_user}"
     echo "output: ${output}"
     [[ "${output}" == *"GH_TOKEN=ghp_fromfile"* ]]
@@ -120,7 +119,7 @@ _run_github_fn() {
 @test "missing GITHUB_PAT_FILE returns error" {
     unset GITHUB_PAT 2>/dev/null || true
     local output
-    GITHUB_PAT_FILE="/nonexistent/path" output=$(_run_github_fn --version 2>&1) && {
+    output=$(GITHUB_PAT_FILE="/nonexistent/path" _run_github_fn --version 2>&1) && {
         echo "expected non-zero exit"
         false
     }
@@ -131,7 +130,7 @@ _run_github_fn() {
 @test "missing GITHUB_USERNAME_FILE returns error" {
     unset GITHUB_PAT GITHUB_USERNAME 2>/dev/null || true
     local output
-    GITHUB_USERNAME_FILE="/nonexistent/path" output=$(_run_github_fn --version 2>&1) && {
+    output=$(GITHUB_USERNAME_FILE="/nonexistent/path" _run_github_fn --version 2>&1) && {
         echo "expected non-zero exit"
         false
     }
@@ -144,8 +143,7 @@ _run_github_fn() {
     tmpfile=$(mktemp)
     echo "ghp_fromfile" > "${tmpfile}"
     local output
-    GITHUB_PAT="ghp_direct" GITHUB_PAT_FILE="${tmpfile}" \
-        output=$(_run_github_fn --version)
+    output=$(GITHUB_PAT="ghp_direct" GITHUB_PAT_FILE="${tmpfile}" _run_github_fn --version)
     rm -f "${tmpfile}"
     echo "output: ${output}"
     [[ "${output}" == *"GH_TOKEN=ghp_direct"* ]]
@@ -192,7 +190,7 @@ _run_github_fn() {
     tmpfile=$(mktemp)
     # empty file — _read_secret_file returns 1 for empty value
     unset GITHUB_PAT 2>/dev/null || true
-    GITHUB_PAT_FILE="${tmpfile}" output=$(_run_github_fn --version 2>&1) && {
+    output=$(GITHUB_PAT_FILE="${tmpfile}" _run_github_fn --version 2>&1) && {
         echo "expected non-zero exit"
         false
     }
@@ -208,8 +206,7 @@ _run_github_fn() {
     echo "ghp_test" > "${tmpfile_pat}"
     # leave tmpfile_user empty — _read_secret_file returns 1 for empty value
     unset GITHUB_PAT GITHUB_USERNAME 2>/dev/null || true
-    GITHUB_PAT_FILE="${tmpfile_pat}" GITHUB_USERNAME_FILE="${tmpfile_user}" \
-        output=$(_run_github_fn --version 2>&1) && {
+    output=$(GITHUB_PAT_FILE="${tmpfile_pat}" GITHUB_USERNAME_FILE="${tmpfile_user}" _run_github_fn --version 2>&1) && {
         echo "expected non-zero exit"
         false
     }
