@@ -7,7 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.6](https://github.com/1121citrus/github-cli/compare/v1.0.5...v1.0.6) (2026-04-17)
 
-
 ### Bug Fixes
 
 * **changelog:** remove markdownlint spacing issue ([c1e1e97](https://github.com/1121citrus/github-cli/commit/c1e1e97962bf9ea5353aa9c7ffaaac2390b68e22))
