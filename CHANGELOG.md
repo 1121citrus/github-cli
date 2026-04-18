@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7](https://github.com/1121citrus/github-cli/compare/v1.0.6...v1.0.7) (2026-04-18)
+
+
+### Bug Fixes
+
+* **changelog:** remove extra blank line to resolve MD012 lint error ([f00d3e6](https://github.com/1121citrus/github-cli/commit/f00d3e6ba5a98fc418791b6926d4b7c9c47157b6))
+* **changelog:** remove markdownlint spacing issue ([c1e1e97](https://github.com/1121citrus/github-cli/commit/c1e1e97962bf9ea5353aa9c7ffaaac2390b68e22))
+* **lint:** resolve markdown and shellcheck linting errors ([d5fbc07](https://github.com/1121citrus/github-cli/commit/d5fbc075e1149642666fc16997cdfa01659fa46f))
+* **security:** suppress grype CRITICAL/HIGH; register two new CVEs ([715d285](https://github.com/1121citrus/github-cli/commit/715d2855a150e30e07f3fe202ccf9fecbb362a2c))
+
 ## [1.0.6](https://github.com/1121citrus/github-cli/compare/v1.0.5...v1.0.6) (2026-04-17)
 
 ### Bug Fixes
