@@ -114,9 +114,9 @@ set -euo pipefail
 
 # -- GENERATED metadata (informational; enforcement is in CI) --
 # shellcheck disable=SC2034
-GENERATED_AT="2026-04-28T01:14:05Z"
+GENERATED_AT="2026-04-28T01:30:43Z"
 # shellcheck disable=SC2034
-GENERATED_FROM_SHA="32d6444"
+GENERATED_FROM_SHA="85cd04f"
 
 # ---------------------------------------------------------------------------
 # Defaults — may be overridden by environment variables or CLI flags.
@@ -535,7 +535,8 @@ if [[ "${LINT}" == "true" ]]; then
             /src/test/03-gh-invocation.bats \
             /src/test/04-env-metadata.bats \
             /src/test/05-shell-functions.bats \
-            /src/test/06-image-metadata.bats)
+            /src/test/06-image-metadata.bats \
+            /src/test/07-build-scan-regressions.bats)
 
     echo "    markdownlint **/*.md" >&2
     run docker run --rm \
@@ -805,6 +806,7 @@ if [[ "${ADVISE_COVERAGE}" == "true" ]]; then
                 test/04-env-metadata.bats \
                 test/05-shell-functions.bats \
                 test/06-image-metadata.bats \
+                test/07-build-scan-regressions.bats \
             >&2 || echo "    Coverage run failed (advisory only)" >&2
     fi
 fi
