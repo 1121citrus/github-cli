@@ -15,6 +15,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-05-04
+
+### Security
+
+- `.grype.yaml`: add GHSA advisory aliases for all existing Go module CVEs;
+  Grype reports each vulnerability under both its CVE ID and GHSA ID
+  simultaneously and the ignore list must cover both.
+- `.grype.yaml`: add GHSA-mh2q-q3fh-2475 (High) for the base
+  `go.opentelemetry.io/otel` module (separate from the `/sdk` submodule).
+- `.grype.yaml`: add CVE-2026-6100 ignore entry; Python 3.14.x is a transitive
+  Alpine edge package dependency and cannot be removed from the image.
+- `.grype.yaml`: add CVE-2025-60876 (Medium) for `busybox`/`busybox-binsh`/
+  `ssl_client`; no fix available in Alpine edge; `apk upgrade` will install
+  it automatically when Alpine ships a patch.
+- `Dockerfile`: update CVE comment block to sixteen total unfixable CVEs;
+  include GHSA aliases alongside existing CVE IDs.
+- `SECURITY.md`: update count and table to reflect all new GHSA aliases,
+  `otel` base module, and `busybox` entries.
+
+### Changed
+
+- `build`: regenerate with gitleaks Stage 5e advisement and tool version
+  bumps (Grype v0.87.0→v0.112.0, Hadolint v2.12.0→v2.14.0,
+  Shellcheck v0.10.0→v0.11.0, Trivy 0.62.1→0.70.0).
+
 ## [1.0.7] - 2026-04-06
 
 ### Changed
@@ -75,7 +100,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Change Details
 
-- [Unreleased](https://github.com/1121citrus/github-cli/compare/v1.0.7...HEAD)
+- [Unreleased](https://github.com/1121citrus/github-cli/compare/v1.1.2...HEAD)
+- [1.1.2](https://github.com/1121citrus/github-cli/compare/v1.1.1...v1.1.2)
 - [1.0.7](https://github.com/1121citrus/github-cli/compare/v1.0.6...v1.0.7)
 - [1.0.6](https://github.com/1121citrus/github-cli/compare/v1.0.5...v1.0.6)
 - [1.0.5](https://github.com/1121citrus/github-cli/compare/v1.0.4...v1.0.5)
