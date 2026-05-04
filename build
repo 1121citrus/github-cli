@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# 1121citrus.build-date 2026-05-04T00:23:20Z
-# 1121citrus.build-version bb2b9a0df3a1
+# 1121citrus.build-date 2026-05-04T01:48:18Z
+# 1121citrus.build-version 03b7ce70329b
 
 # build — local CI equivalent for github-cli.
 #

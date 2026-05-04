@@ -21,24 +21,43 @@
 # resolves all OS-level CVEs. Using an edge base image with apk upgrade
 # ensures all OS patches are applied.
 #
-# Thirteen CVEs remain; all are transitive Go module deps compiled into the gh
-# binary by the Alpine package maintainer and cannot be patched here:
+# Sixteen CVEs/advisories remain: fourteen are transitive Go module deps
+# compiled into the gh binary; two are transitive Alpine edge package deps.
+# Many Go module CVEs are reported under both a CVE ID and a GHSA ID;
+# all aliases are suppressed in .grype.yaml.
 #
-#   CRITICAL CVE-2026-33186  google.golang.org/grpc 1.77.0        fix: 1.79.3
-#   HIGH    CVE-2025-15558  github.com/docker/cli 29.0.3         fix: 29.2.0
-#   HIGH    CVE-2025-66564  sigstore/timestamp-authority 1.2.9   fix: 2.0.3
-#   HIGH    CVE-2026-24051  go.opentelemetry.io/otel/sdk 1.38    fix: 1.40.0
-#   HIGH    CVE-2026-39883  go.opentelemetry.io/otel/sdk 1.38    fix: 1.43.0
-#   HIGH    CVE-2026-34986  github.com/go-jose/go-jose/v4 4.1.3  fix: 4.1.4
-#   MEDIUM  CVE-2026-23992  github.com/theupdateframework/go-tuf/v2 2.3.0  fix: 2.3.1
-#   MEDIUM  CVE-2026-23991  github.com/theupdateframework/go-tuf/v2 2.3.0  fix: 2.3.1
-#   MEDIUM  CVE-2026-24686  github.com/theupdateframework/go-tuf/v2 2.3.0  fix: 2.4.1
-#   MEDIUM  CVE-2026-24117  github.com/sigstore/rekor 1.4.2      fix: 1.5.0
-#   MEDIUM  CVE-2026-23831  github.com/sigstore/rekor 1.4.2      fix: 1.5.0
-#   MEDIUM  CVE-2026-24137  github.com/sigstore/sigstore 1.9.6   fix: 1.10.4
-#   UNSPECIFIED GHSA-mqqf-5wvp-8fh8  github.com/go-chi/chi/v5 5.2.3  fix: 5.2.4
+#   CRITICAL CVE-2026-6100   python 3.14.x (binary)               no fix yet
+#   MEDIUM   CVE-2025-60876  busybox 1.37.0-r31 (apk)             no fix yet
+#   CRITICAL CVE-2026-33186 / GHSA-p77j-4mvh-x3m3
+#            google.golang.org/grpc 1.77.0                        fix: 1.79.3
+#   HIGH    CVE-2025-15558 / GHSA-p436-gjf2-799p
+#            github.com/docker/cli 29.0.3                         fix: 29.2.0
+#   HIGH    CVE-2025-66564 / GHSA-4qg8-fj49-pxjh
+#            sigstore/timestamp-authority 1.2.9                   fix: 2.0.3
+#   HIGH    GHSA-mh2q-q3fh-2475
+#            go.opentelemetry.io/otel 1.38.0                      fix: 1.41.0
+#   HIGH    CVE-2026-24051 / GHSA-9h8m-3fm2-qjrq
+#            go.opentelemetry.io/otel/sdk 1.38.0                  fix: 1.40.0
+#   HIGH    CVE-2026-39883 / GHSA-hfvc-g4fc-pqhx
+#            go.opentelemetry.io/otel/sdk 1.38.0                  fix: 1.43.0
+#   HIGH    CVE-2026-34986 / GHSA-78h2-9frx-2jm8
+#            github.com/go-jose/go-jose/v4 4.1.3                  fix: 4.1.4
+#   MEDIUM  CVE-2026-23992 / GHSA-846p-jg2w-w324
+#            go-tuf/v2 2.3.0                                       fix: 2.3.1
+#   MEDIUM  CVE-2026-23991 / GHSA-fphv-w9fq-2525
+#            go-tuf/v2 2.3.0                                       fix: 2.3.1
+#   MEDIUM  CVE-2026-24686 / GHSA-jqc5-w2xx-5vq4
+#            go-tuf/v2 2.3.0                                       fix: 2.4.1
+#   MEDIUM  CVE-2026-24117 / GHSA-273p-m2cw-6833
+#            sigstore/rekor 1.4.2                                  fix: 1.5.0
+#   MEDIUM  CVE-2026-23831 / GHSA-4c4x-jm2x-pf9j
+#            sigstore/rekor 1.4.2                                  fix: 1.5.0
+#   MEDIUM  CVE-2026-24137 / GHSA-fcv2-xgw5-pqxf
+#            sigstore/sigstore 1.9.6                               fix: 1.10.4
+#   UNSPECIFIED GHSA-mqqf-5wvp-8fh8
+#            go-chi/chi/v5 5.2.3                                   fix: 5.2.4
 #
-# These packages are only exercised by `gh attestation` commands.
+# Go module CVEs exercised only by `gh attestation` commands.
 # Tracking: https://github.com/cli/cli (update go.mod deps)
 #
 # For reproducible production builds, pin to a specific digest:
