@@ -40,6 +40,13 @@ _run_github_fn() {
     [[ "${output}" == *"GH_CONFIG_DIR=/gh-config"* ]]
 }
 
+@test "XDG_CACHE_HOME is set" {
+    local output
+    output=$(_run_github_fn --version)
+    echo "output: ${output}"
+    [[ "${output}" == *"XDG_CACHE_HOME=/gh-cache"* ]]
+}
+
 @test "workspace volume is mounted" {
     local output
     output=$(_run_github_fn --version)
@@ -52,6 +59,13 @@ _run_github_fn() {
     output=$(_run_github_fn --version)
     echo "output: ${output}"
     [[ "${output}" == *"/gh-config"* ]]
+}
+
+@test "gh-cache volume is mounted" {
+    local output
+    output=$(_run_github_fn --version)
+    echo "output: ${output}"
+    [[ "${output}" == *"/gh-cache"* ]]
 }
 
 @test "gh-config is not mounted read-only" {

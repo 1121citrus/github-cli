@@ -70,9 +70,11 @@ function github() {
         tty_flags+=(-t)
     fi
 
-    # Create the gh config directory on the host if it doesn't exist,
-    # so the bind mount doesn't fail.
-    mkdir -p "${HOME}/.config/gh"
+    # Create host-side gh config/cache directories so bind mounts succeed.
+    local host_gh_config_dir="${HOME}/.config/gh"
+    local host_gh_cache_root="${XDG_CACHE_HOME:-${HOME}/.cache}"
+    local host_gh_cache_dir="${host_gh_cache_root}/gh"
+    mkdir -p "${host_gh_config_dir}" "${host_gh_cache_dir}"
 
     docker run --rm "${tty_flags[@]}" \
         --user "$(id -u):$(id -g)" \
@@ -80,7 +82,9 @@ function github() {
         --security-opt no-new-privileges:true \
         "${auth_env[@]}" \
         -e GH_CONFIG_DIR=/gh-config \
-        -v "${HOME}/.config/gh:/gh-config" \
+        -e XDG_CACHE_HOME=/gh-cache \
+        -v "${host_gh_config_dir}:/gh-config" \
+        -v "${host_gh_cache_dir}:/gh-cache" \
         -v "${PWD}:/workspace" \
         1121citrus/github-cli:latest "$@"
 }
