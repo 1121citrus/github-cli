@@ -21,13 +21,30 @@
 # resolves all OS-level CVEs. Using an edge base image with apk upgrade
 # ensures all OS patches are applied.
 #
-# Sixteen CVEs/advisories remain: fourteen are transitive Go module deps
-# compiled into the gh binary; two are transitive Alpine edge package deps.
-# Many Go module CVEs are reported under both a CVE ID and a GHSA ID;
-# all aliases are suppressed in .grype.yaml.
+# Forty-six CVEs/advisories remain: forty-one are transitive Go module deps
+# (including the Go toolchain itself) compiled into the gh binary; five are
+# transitive Alpine edge package deps.  Many Go module CVEs are reported
+# under both a CVE ID and a GHSA/GO ID; all aliases are suppressed in
+# .grype.yaml.
 #
 #   CRITICAL CVE-2026-6100   python 3.14.x (binary)               no fix yet
 #   MEDIUM   CVE-2025-60876  busybox 1.37.0-r31 (apk)             no fix yet
+#   HIGH     CVE-2026-38753/38754/38755
+#            busybox / busybox-binsh / ssl_client 1.38.0-r8 (apk) no fix yet
+#   CRITICAL GO-2026-6612, CVE-2026-78663, GO-2026-6604
+#            golang.org/x/net 0.58.0 / Go stdlib go1.27.1 (go-module)
+#                                            fix: x/net 0.60.0 / Go 1.27.2
+#   HIGH     GO-2026-6603, GO-2026-6611, GO-2026-6617, GO-2026-6610,
+#            CVE-2026-78659, CVE-2026-78669, CVE-2026-97032, CVE-2026-78660,
+#            GO-2026-6607, GO-2026-6608, GO-2026-6609, GO-2026-6605,
+#            GO-2026-6613, CVE-2026-97031, CVE-2026-94440, CVE-2026-78667,
+#            CVE-2026-56866, CVE-2026-94439, CVE-2026-94447, CVE-2026-94444
+#            golang.org/x/net 0.58.0 / Go stdlib go1.27.1 (go-module)
+#                                 fix: x/net 0.60.0 / Go 1.27.2 (1.26.9 branch)
+#   MEDIUM   GO-2026-6599, CVE-2026-94448, GO-2026-6600, CVE-2026-97030
+#            Go stdlib go1.27.1 (go-module)   fix: Go 1.27.2 (1.26.9 branch)
+#            (gh binary rebuilt by Alpine package maintainer, not by us —
+#            see .grype.yaml for every suppressed CVE/GO/GHSA id)
 #   CRITICAL CVE-2026-33186 / GHSA-p77j-4mvh-x3m3
 #            google.golang.org/grpc 1.77.0                        fix: 1.79.3
 #   HIGH    CVE-2025-15558 / GHSA-p436-gjf2-799p

@@ -1,8 +1,10 @@
 # Grype scan configuration for github-cli.
 #
 # Ignored entries fall into two categories:
-#   1. Transitive Go module dependencies compiled into the `gh` binary by the
-#      Alpine package maintainer.  Fixes require cli/cli to update its go.mod.
+#   1. Transitive Go module dependencies (and the Go toolchain itself)
+#      compiled into the `gh` binary by the Alpine package maintainer.
+#      Fixes require cli/cli to update its go.mod, or Alpine to rebuild the
+#      package against a newer Go toolchain/stdlib.
 #   2. Transitive Alpine edge package dependencies.  Cannot be removed at the
 #      image level.
 #
@@ -39,6 +41,48 @@ ignore:
       name: busybox-binsh
       type: apk
   - vulnerability: CVE-2025-60876
+    package:
+      name: ssl_client
+      type: apk
+
+  # busybox 1.38.0-r8 — HIGH CVE-2026-38753 / CVE-2026-38754 / CVE-2026-38755;
+  # no fix in Alpine edge yet.  Confirmed 2026-10-29 via
+  # pkgs.alpinelinux.org/package/edge/main/x86_64/busybox: current edge
+  # version is still 1.38.0-r8, matching this scan.  apk upgrade runs at
+  # build time; remove these entries when Alpine ships a patch.
+  - vulnerability: CVE-2026-38753
+    package:
+      name: busybox
+      type: apk
+  - vulnerability: CVE-2026-38753
+    package:
+      name: busybox-binsh
+      type: apk
+  - vulnerability: CVE-2026-38753
+    package:
+      name: ssl_client
+      type: apk
+  - vulnerability: CVE-2026-38754
+    package:
+      name: busybox
+      type: apk
+  - vulnerability: CVE-2026-38754
+    package:
+      name: busybox-binsh
+      type: apk
+  - vulnerability: CVE-2026-38754
+    package:
+      name: ssl_client
+      type: apk
+  - vulnerability: CVE-2026-38755
+    package:
+      name: busybox
+      type: apk
+  - vulnerability: CVE-2026-38755
+    package:
+      name: busybox-binsh
+      type: apk
+  - vulnerability: CVE-2026-38755
     package:
       name: ssl_client
       type: apk
@@ -194,4 +238,174 @@ ignore:
   - vulnerability: GHSA-mqqf-5wvp-8fh8
     package:
       name: github.com/go-chi/chi/v5
+      type: go-module
+
+  # ── Go toolchain / golang.org/x/net (compiled into gh binary) ───────────────
+  #
+  # The `github-cli` Alpine edge apk package (2.102.0-r0, built 2026-09-30)
+  # embeds Go stdlib go1.27.1 and golang.org/x/net v0.58.0 at compile time.
+  # Fixes exist upstream (Go 1.26.9/1.27.2, x/net 0.60.0) but require Alpine's
+  # package maintainer to rebuild `github-cli` against the patched toolchain;
+  # confirmed 2026-10-29 via pkgs.alpinelinux.org/package/edge/community that
+  # no newer build is published yet.  Grype reports several of these under
+  # both a GO- id and a CVE alias, and under both `stdlib` and
+  # `golang.org/x/net` directly (x/net's HTTP/2 implementation is vendored
+  # into net/http).
+
+  # CRITICAL; fix: golang.org/x/net 0.60.0 / Go 1.27.2
+  - vulnerability: GO-2026-6612
+    package:
+      name: golang.org/x/net
+      type: go-module
+  - vulnerability: GO-2026-6612
+    package:
+      name: stdlib
+      type: go-module
+  - vulnerability: CVE-2026-78663
+    package:
+      name: stdlib
+      type: go-module
+
+  # CRITICAL; fix: Go 1.27.2
+  - vulnerability: GO-2026-6604
+    package:
+      name: stdlib
+      type: go-module
+
+  # HIGH; fix: golang.org/x/net 0.60.0 / Go 1.27.2
+  - vulnerability: GO-2026-6603
+    package:
+      name: golang.org/x/net
+      type: go-module
+  - vulnerability: GO-2026-6603
+    package:
+      name: stdlib
+      type: go-module
+  - vulnerability: CVE-2026-78659
+    package:
+      name: stdlib
+      type: go-module
+
+  # HIGH; fix: golang.org/x/net 0.60.0 / Go 1.27.2
+  - vulnerability: GO-2026-6611
+    package:
+      name: golang.org/x/net
+      type: go-module
+  - vulnerability: GO-2026-6611
+    package:
+      name: stdlib
+      type: go-module
+  - vulnerability: CVE-2026-78669
+    package:
+      name: stdlib
+      type: go-module
+
+  # HIGH; fix: Go 1.27.2
+  - vulnerability: GO-2026-6607
+    package:
+      name: stdlib
+      type: go-module
+  - vulnerability: CVE-2026-97031
+    package:
+      name: stdlib
+      type: go-module
+
+  # HIGH; fix: Go 1.27.2
+  - vulnerability: GO-2026-6608
+    package:
+      name: stdlib
+      type: go-module
+  - vulnerability: CVE-2026-94440
+    package:
+      name: stdlib
+      type: go-module
+
+  # HIGH; fix: golang.org/x/net 0.60.0 / Go 1.27.2
+  - vulnerability: GO-2026-6617
+    package:
+      name: golang.org/x/net
+      type: go-module
+  - vulnerability: GO-2026-6617
+    package:
+      name: stdlib
+      type: go-module
+  - vulnerability: CVE-2026-97032
+    package:
+      name: stdlib
+      type: go-module
+
+  # HIGH; fix: Go 1.27.2
+  - vulnerability: GO-2026-6609
+    package:
+      name: stdlib
+      type: go-module
+  - vulnerability: CVE-2026-78667
+    package:
+      name: stdlib
+      type: go-module
+
+  # HIGH; fix: Go 1.27.2
+  - vulnerability: GO-2026-6605
+    package:
+      name: stdlib
+      type: go-module
+  - vulnerability: CVE-2026-56866
+    package:
+      name: stdlib
+      type: go-module
+
+  # HIGH; fix: golang.org/x/net 0.60.0 / Go 1.27.2
+  - vulnerability: GO-2026-6610
+    package:
+      name: golang.org/x/net
+      type: go-module
+  - vulnerability: GO-2026-6610
+    package:
+      name: stdlib
+      type: go-module
+  - vulnerability: CVE-2026-78660
+    package:
+      name: stdlib
+      type: go-module
+
+  # HIGH; fix: Go 1.27.2
+  - vulnerability: GO-2026-6613
+    package:
+      name: stdlib
+      type: go-module
+  - vulnerability: CVE-2026-94439
+    package:
+      name: stdlib
+      type: go-module
+
+  # HIGH; fix: Go 1.27.2
+  - vulnerability: CVE-2026-94447
+    package:
+      name: stdlib
+      type: go-module
+
+  # HIGH; fix: Go 1.26.9 / 1.27.2
+  - vulnerability: CVE-2026-94444
+    package:
+      name: stdlib
+      type: go-module
+
+  # MEDIUM; fix: Go 1.26.9 / 1.27.2
+  - vulnerability: GO-2026-6599
+    package:
+      name: stdlib
+      type: go-module
+  - vulnerability: CVE-2026-94448
+    package:
+      name: stdlib
+      type: go-module
+
+  # MEDIUM; fix: Go 1.26.9 / 1.27.2
+  - vulnerability: GO-2026-6600
+    package:
+      name: stdlib
+      type: go-module
+  - vulnerability: CVE-2026-97030
+    package:
+      name: stdlib
       type: go-module

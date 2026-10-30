@@ -141,9 +141,9 @@ fi
 # ---------------------------------------------------------------------------
 SCAN=${BUILD_SCAN:-true}
 SCAN_GRYPE=${BUILD_SCAN_GRYPE:-true}
-SCAN_SCOUT=${BUILD_SCAN_SCOUT:-true}
 ADVISE_DIVE=false
 ADVISE_METRICS=false
+ADVISE_SCOUT=false
 ADVISE_SECURITY=false
 ADVISE_COVERAGE=false
 _ADVISE_EXPLICIT=false   # set true when --advise or --no-advise is passed
@@ -422,7 +422,6 @@ while [[ $# -gt 0 ]]; do
         --no-scan)
             SCAN=false
             SCAN_GRYPE=false
-            SCAN_SCOUT=false
             ;;
         --advise|--advice)
             _ADVISE_EXPLICIT=true
@@ -435,6 +434,7 @@ while [[ $# -gt 0 ]]; do
             # Parse the comma-delimited list
             ADVISE_DIVE=false
             ADVISE_METRICS=false
+            ADVISE_SCOUT=false
             ADVISE_SECURITY=false
             ADVISE_COVERAGE=false
             IFS=',' read -ra adv_list <<< "$advisements"
@@ -445,16 +445,19 @@ while [[ $# -gt 0 ]]; do
                     coverage) ADVISE_COVERAGE=true ;;
                     dive)     ADVISE_DIVE=true ;;
                     metrics)  ADVISE_METRICS=true ;;
+                    scout)    ADVISE_SCOUT=true ;;
                     security) ADVISE_SECURITY=true ;;
                     all)
                         ADVISE_DIVE=true
                         ADVISE_METRICS=true
+                        ADVISE_SCOUT=true
                         ADVISE_SECURITY=true
                         ADVISE_COVERAGE=true
                         ;;
                     none)
                         ADVISE_DIVE=false
                         ADVISE_METRICS=false
+                        ADVISE_SCOUT=false
                         ADVISE_SECURITY=false
                         ADVISE_COVERAGE=false
                         ;;
@@ -465,6 +468,7 @@ while [[ $# -gt 0 ]]; do
         --no-advise)
             ADVISE_DIVE=false
             ADVISE_METRICS=false
+            ADVISE_SCOUT=false
             ADVISE_SECURITY=false
             ADVISE_COVERAGE=false
             _ADVISE_EXPLICIT=true
@@ -495,6 +499,7 @@ done
 if [[ "${SCAN}" == "false" && "${_ADVISE_EXPLICIT}" == "false" ]]; then
     ADVISE_DIVE=false
     ADVISE_METRICS=false
+    ADVISE_SCOUT=false
     ADVISE_SECURITY=false
     ADVISE_COVERAGE=false
 fi
@@ -792,38 +797,31 @@ if [[ "${SCAN_GRYPE}" == "true" ]]; then
     fi
 fi
 
-# ---------------------------------------------------------------------------
-# Stage 4c: Scan (Docker Scout — gating)
-# Runs Docker Scout CVE scan.  Exit code blocks the build.
-# Skips cleanly if the scout-cli plugin image is unavailable.
-# ---------------------------------------------------------------------------
-if [[ "${SCAN_SCOUT}" == "true" ]]; then
-    echo "==> Stage 4c: Scan (Scout) ${full_image}:${VERSION}" >&2
-    if [[ "${DRY_RUN}" == "true" ]]; then
-        run docker scout cves "${full_image}:${VERSION}"
-    else
-        set +e
-        _scout_out=$(docker scout cves --exit-code --only-severity critical,high \
-            "${full_image}:${VERSION}" 2>&1)
-        _scout_status=$?
-        set -e
-        if [[ ${_scout_status} -ne 0 ]] \
-            && echo "${_scout_out}" \
-                | grep -qiE 'not found|cannot pull|failed to resolve'; then
-            echo "    Scout scan skipped: docker/scout-cli image unavailable." >&2
-        else
-            echo "${_scout_out}" >&2
-            if [[ ${_scout_status} -ne 0 ]]; then
-                exit "${_scout_status}"
-            fi
-        fi
-    fi
-fi
-
 # Clean up shared scan archive.
 if [[ -n "${_scan_tar}" ]]; then
     rm -f "${_scan_tar}"
     trap - EXIT
+fi
+
+# ---------------------------------------------------------------------------
+# Stage 5b: Advise (Docker Scout — non-gating)
+# ---------------------------------------------------------------------------
+if [[ "${ADVISE_SCOUT}" == "true" ]]; then
+    echo "==> Stage 5b: Advise (Scout) ${full_image}:${VERSION}" >&2
+    if [[ "${DRY_RUN}" == "true" ]]; then
+        run docker scout cves "${full_image}:${VERSION}" || true
+    else
+        set +e
+        _scout_out=$(docker scout cves "${full_image}:${VERSION}" 2>&1)
+        _scout_status=$?
+        set -e
+        if [[ ${_scout_status} -ne 0 ]] \
+            && echo "${_scout_out}" | grep -qiE 'not found|cannot pull|failed to resolve'; then
+            echo "    Scout advisory skipped: docker/scout-cli image unavailable." >&2
+        else
+            echo "${_scout_out}" >&2
+        fi
+    fi
 fi
 
 # ---------------------------------------------------------------------------

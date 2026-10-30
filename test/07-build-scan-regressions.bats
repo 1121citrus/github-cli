@@ -51,3 +51,22 @@ setup() {
     run grep -F 'CVE-2026-33186' "${GRYPE_CONFIG}"
     [ "$status" -eq 0 ]
 }
+
+@test ".grype.yaml tracks the x/net and Go stdlib HTTP/2 CVE cluster" {
+    run grep -F 'GO-2026-6612' "${GRYPE_CONFIG}"
+    [ "$status" -eq 0 ]
+
+    run grep -F 'golang.org/x/net' "${GRYPE_CONFIG}"
+    [ "$status" -eq 0 ]
+}
+
+@test ".grype.yaml tracks the busybox 1.38.0-r8 CVEs" {
+    run grep -F 'CVE-2026-38753' "${GRYPE_CONFIG}"
+    [ "$status" -eq 0 ]
+
+    run grep -F 'CVE-2026-38754' "${GRYPE_CONFIG}"
+    [ "$status" -eq 0 ]
+
+    run grep -F 'CVE-2026-38755' "${GRYPE_CONFIG}"
+    [ "$status" -eq 0 ]
+}

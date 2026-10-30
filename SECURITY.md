@@ -19,19 +19,24 @@ Do not open a public GitHub issue for security vulnerabilities.
 
 ## Known Unfixable CVEs
 
-Sixteen CVEs/advisories are present in every published image.  Fourteen are
-**transitive Go module dependencies** compiled directly into the `gh` binary
-by the Alpine package maintainer; the fix must come from the upstream
-[cli/cli](https://github.com/cli/cli) project updating its `go.mod`.  Two are
-**transitive Alpine edge package dependencies** that cannot be removed at the
-image level.
+Forty-six CVEs/advisories are present in every published image.  Forty-one
+are **transitive Go module dependencies**, including the Go toolchain itself,
+compiled directly into the `gh` binary by the Alpine package maintainer; the
+fix must come from either the upstream [cli/cli](https://github.com/cli/cli)
+project updating its `go.mod`, or Alpine rebuilding `github-cli` against a
+newer Go toolchain/stdlib. Five are **transitive Alpine edge package
+dependencies** that cannot be removed at the image level.
 
 Many Go module CVEs are also reported by Grype under GitHub Advisory (GHSA)
-IDs; all known aliases per vulnerability are listed together and suppressed in
-`.grype.yaml`.
+or Go vulnerability database (GO) IDs; all known aliases per vulnerability
+are listed together and suppressed in `.grype.yaml`, which is the
+authoritative, exhaustive list of every suppressed ID.
 
-The Go module CVEs are only exercised by `gh attestation` sub-commands.
-Workloads that do not call `gh attestation` are not exposed.
+The fourteen CVEs/advisories from the original table below are only
+exercised by `gh attestation` sub-commands; workloads that do not call `gh
+attestation` are not exposed. The `golang.org/x/net` / Go stdlib HTTP/2
+cluster added 2026-10-29 is in the core HTTP transport used by every `gh`
+command.
 
 | Severity | CVE / Advisory | Package | Version | Fixed in |
 | --- | --- | --- | --- | --- |
@@ -51,6 +56,18 @@ Workloads that do not call `gh attestation` are not exposed.
 | MEDIUM | [CVE-2026-23831](https://www.cve.org/CVERecord?id=CVE-2026-23831) / [GHSA-4c4x-jm2x-pf9j](https://github.com/advisories/GHSA-4c4x-jm2x-pf9j) | `sigstore/rekor` | 1.4.2 | 1.5.0 |
 | MEDIUM | [CVE-2026-24137](https://www.cve.org/CVERecord?id=CVE-2026-24137) / [GHSA-fcv2-xgw5-pqxf](https://github.com/advisories/GHSA-fcv2-xgw5-pqxf) | `sigstore/sigstore` | 1.9.6 | 1.10.4 |
 | UNSPECIFIED | [GHSA-mqqf-5wvp-8fh8](https://github.com/advisories/GHSA-mqqf-5wvp-8fh8) | `go-chi/chi/v5` | 5.2.3 | 5.2.4 |
+| HIGH | CVE-2026-38753, CVE-2026-38754, CVE-2026-38755 | `busybox` / `busybox-binsh` / `ssl_client` (apk, Alpine dep) | 1.38.0-r8 | No fix available |
+| CRITICAL | GO-2026-6612, CVE-2026-78663, GO-2026-6604 | `golang.org/x/net` (0.58.0) / Go stdlib (go1.27.1) | n/a | x/net 0.60.0; Go 1.27.2 |
+| HIGH | GO-2026-6603, GO-2026-6611, GO-2026-6617, GO-2026-6610, CVE-2026-78659, CVE-2026-78669, CVE-2026-97032, CVE-2026-78660, GO-2026-6607, GO-2026-6608, GO-2026-6609, GO-2026-6605, GO-2026-6613, CVE-2026-97031, CVE-2026-94440, CVE-2026-78667, CVE-2026-56866, CVE-2026-94439, CVE-2026-94447, CVE-2026-94444 | `golang.org/x/net` (0.58.0) / Go stdlib (go1.27.1) | n/a | x/net 0.60.0; Go 1.27.2 (1.26.9 branch) |
+| MEDIUM | GO-2026-6599, CVE-2026-94448, GO-2026-6600, CVE-2026-97030 | Go stdlib (go1.27.1) | n/a | Go 1.27.2 (1.26.9 branch) |
+
+These four rows are summarized clusters; `.grype.yaml` is the authoritative
+per-ID ignore list (each ID is a separate `ignore` entry there, since Grype
+matches on exact vulnerability ID). Confirmed 2026-10-29 that no newer
+Alpine edge build resolves any of them: `busybox` is still `1.38.0-r8`
+(`pkgs.alpinelinux.org/package/edge/main/x86_64/busybox`) and `github-cli` is
+still `2.102.0-r0`, built 2026-09-30
+(`pkgs.alpinelinux.org/package/edge/community/x86_64/github-cli`).
 
 Tracking issue: [cli/cli upstream go.mod update](https://github.com/cli/cli)
 

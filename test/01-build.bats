@@ -23,11 +23,11 @@ setup() {
     [[ "${output}" == *"--cache CACHE_RULES"* ]]
 }
 
-@test "build --advice scout is rejected (Scout is gating)" {
+@test "build --advise scout enables Scout advisement stage" {
     local output
-    output=$("${BUILD}" --advice scout 2>&1) || true
+    output=$("${BUILD}" --advise scout --dry-run --no-lint --no-test --no-scan 2>&1)
     echo "output: ${output}"
-    [[ "${output}" == *"Unknown advisement"* ]]
+    [[ "${output}" == *"Stage 5b: Advise (Scout)"* ]]
 }
 
 @test "build --advise Dive enables Dive advisement stage" {
